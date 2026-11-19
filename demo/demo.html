@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>sleep-memory demo</title>
+<style>
+  :root{--blue:#4C8DFF;--ink:#1f2329;--muted:#8a8f99;--line:#e8eaee;--bg:#f6f7f9;--shimmer:#DCEBFF}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  #stage{position:relative;width:1280px;height:720px;overflow:hidden}
+  .topbar{position:absolute;top:22px;left:28px;right:28px;display:flex;align-items:center;gap:10px;
+    font-size:13px;color:var(--muted);z-index:5}
+  .dot{width:18px;height:18px;border-radius:50%;background:var(--blue);display:grid;place-items:center;color:#fff;font-size:10px;font-weight:700}
+  .topbar b{color:var(--ink);font-weight:600}
+  .topbar .right{margin-left:auto;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+  .scene{position:absolute;inset:0;display:grid;place-items:center;opacity:0;transition:opacity .55s ease;padding:70px 90px}
+  .scene.on{opacity:1}
+  .caption{position:absolute;left:34px;bottom:30px;font-size:12px;color:var(--muted);letter-spacing:.04em;z-index:5}
+  .caption b{color:var(--blue)}
+  .bar{position:absolute;left:0;bottom:0;height:2px;background:var(--blue);width:0;opacity:.75}
+
+  /* scene 1 */
+  .s1 h1{margin:0 0 10px;font-size:64px;line-height:1.08;letter-spacing:-.02em}
+  .s1 h1 span{color:var(--blue)}
+  .s1 p{margin:0;font-size:22px;color:var(--muted)}
+  .chips{display:flex;gap:8px;margin-top:26px;flex-wrap:wrap;max-width:720px}
+  .chip{font-size:12px;color:#5b6472;background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 12px;
+    opacity:0;transform:translateY(6px);animation:chipIn .4s forwards}
+  @keyframes chipIn{to{opacity:1;transform:none}}
+
+  /* scene 2 */
+  .card{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px rgba(20,30,60,.07)}
+  .store{width:860px;height:430px;display:flex;flex-direction:column;overflow:hidden}
+  .storeHead{display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--line);
+    font-size:12px;color:var(--muted)}
+  .storeHead b{color:var(--ink);font-weight:600}
+  .count{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--blue);font-weight:600}
+  .lines{padding:12px 18px;overflow:hidden;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;line-height:1.9;flex:1}
+  .ln{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#4b5563}
+  .ln.dup{color:#d97706}
+  .ln.bad{color:#dc2626}
+  .ln.new{animation:lnIn .25s ease-out}
+  @keyframes lnIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  /* scene 3 */
+  .s3{grid-template-rows:1fr auto;align-items:center}
+  .napLabel{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:18px;text-align:center}
+  .indicator{display:flex;align-items:center;gap:9px;height:40px;font-size:22px;line-height:32px;color:var(--blue);
+    font-variant-numeric:tabular-nums;white-space:nowrap;justify-content:center}
+  .mem_whale{width:24px;height:24px;flex:none;overflow:visible;transform-origin:35% 75%;animation:wag 3.4s ease-in-out infinite}
+  .mem_shimmer{position:relative;display:inline-grid;width:max-content;color:inherit}
+  .mem_shimmer_content{display:flex;align-items:center;min-width:0}
+  .mem_shimmer_text{color:inherit}
+  .mem_shimmer_text[data-shimmer-text]:after{content:attr(data-shimmer-text)}
+  .mem_shimmer_decoration{position:absolute;inset:0;overflow:clip;pointer-events:none;user-select:none}
+  .mem_shimmer_sweep{position:absolute;inset:0;overflow:hidden;color:var(--shimmer);
+    mask-image:linear-gradient(105deg,transparent 0%,black 40% 60%,transparent 100%);
+    -webkit-mask-image:linear-gradient(105deg,transparent 0%,black 40% 60%,transparent 100%);
+    transform:translate(-100%);animation:sweep 1.5s steps(48,end) .3s infinite}
+  .mem_shimmer_highlight{width:100%;height:100%;transform:translate(100%);animation:highlight 1.5s steps(48,end) .3s infinite}
+  .mem_zzz{position:relative;width:34px;height:22px;flex:none;margin-left:-2px;align-self:center}
+  .mem_zzz i{position:absolute;left:0;font-style:italic;font-weight:600;line-height:1;color:var(--blue);
+    animation:rise 2.4s ease-in-out infinite}
+  .mem_zzz i:nth-child(1){font-size:10px;left:0;bottom:0;animation-delay:0s}
+  .mem_zzz i:nth-child(2){font-size:10px;left:8px;bottom:4px;animation-delay:.3s}
+  .mem_zzz i:nth-child(3){font-size:11px;left:16px;bottom:8px;animation-delay:.6s}
+  .phases{display:flex;gap:10px;justify-content:center;margin-top:34px}
+  .phase{font-size:12px;color:#5b6472;background:#fff;border:1px solid var(--line);border-radius:999px;padding:8px 16px;
+    opacity:.35;transition:all .3s}
+  .phase.on{opacity:1;border-color:rgba(76,141,255,.5);color:var(--blue);box-shadow:0 4px 14px rgba(76,141,255,.15)}
+  @keyframes wag{0%,100%{transform:rotate(0) translateY(0)}50%{transform:rotate(-6deg) translateY(-1px)}}
+  @keyframes sweep{0%{transform:translate(-100%)}66.6667%,to{transform:translate(100%)}}
+  @keyframes highlight{0%{transform:translate(100%)}66.6667%,to{transform:translate(-100%)}}
+  @keyframes rise{0%{opacity:0;transform:translate(0,0)}25%{opacity:1}70%{opacity:.9}100%{opacity:0;transform:translate(4px,-4px)}}
+
+  /* scene 4 */
+  .s4{grid-template-columns:1fr 1fr;gap:26px;align-items:stretch}
+  .col{display:flex;flex-direction:column;gap:12px}
+  .colHead{font-size:12px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
+  .panel{flex:1;padding:18px 20px;overflow:hidden;font-size:13.5px;line-height:2}
+  .panel .row{display:flex;gap:8px;align-items:baseline}
+  .panel .row .k{font-size:10px;color:#9aa1ad;width:62px;flex:none;text-transform:uppercase}
+  .before .row{color:#8a8f99;text-decoration:line-through;text-decoration-color:rgba(220,38,38,.4)}
+  .before .row.keep{color:#4b5563;text-decoration:none}
+  .after .row{color:#2f3742}
+  .after .row .k{color:var(--blue)}
+  .after .row{opacity:0;transform:translateY(6px);animation:rowIn .35s forwards}
+  @keyframes rowIn{to{opacity:1;transform:none}}
+  .ftime{margin-top:8px;font-size:12px;color:var(--blue);background:rgba(76,141,255,.08);border:1px solid rgba(76,141,255,.2);
+    border-radius:10px;padding:10px 12px;line-height:1.6}
+
+  /* scene 5 */
+  .report{width:820px;padding:26px 30px}
+  .report h3{margin:0 0 4px;font-size:18px}
+  .report .sub{font-size:12px;color:var(--muted);margin-bottom:18px}
+  .rrow{display:flex;align-items:baseline;gap:10px;font-size:13.5px;padding:7px 0;border-top:1px solid #f1f3f6}
+  .rrow .n{width:26px;height:26px;border-radius:8px;background:rgba(76,141,255,.1);color:var(--blue);
+    display:grid;place-items:center;font-size:11px;font-weight:700;flex:none}
+  .rrow .t{flex:1;color:#2f3742}
+  .rrow .s{font-size:11px;color:var(--muted)}
+  .badges{display:flex;gap:8px;margin-top:18px}
+  .badge{font-size:11px;color:var(--blue);background:rgba(76,141,255,.08);border:1px solid rgba(76,141,255,.2);
+    border-radius:999px;padding:6px 12px}
+
+  /* scene 6 */
+  .s6{text-align:center}
+  .s6 .brand{font-size:54px;font-weight:700;letter-spacing:-.03em}
+  .s6 .brand span{color:var(--blue)}
+  .s6 .tag{margin-top:8px;font-size:18px;color:var(--muted)}
+  .s6 .meta{margin-top:26px;font-size:13px;color:var(--muted);letter-spacing:.06em}
+  .s6 .indicator{margin-top:30px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="topbar">
+    <span class="dot">s</span><b>sleep-memory</b>
+    <span>for DeepSeek Harness</span>
+    <span class="right">concept demo</span>
+  </div>
+
+  <section class="scene s1" id="s1">
+    <div>
+      <h1>大多数 Agent 记忆<br>只会<span>追加</span>。</h1>
+      <p>越存越脏：重复、矛盾、过时。</p>
+      <div class="chips" id="chips"></div>
+    </div>
+  </section>
+
+  <section class="scene s2" id="s2">
+    <div class="card store">
+      <div class="storeHead"><b>memory.json</b><span>append-only</span><span class="count" id="count">0 entries</span></div>
+      <div class="lines" id="lines"></div>
+    </div>
+  </section>
+
+  <section class="scene s3" id="s3">
+    <div>
+      <div class="napLabel">nap · replay → rewrite → downscale → glymph</div>
+      <div class="indicator">
+        <svg class="mem_whale" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8.844 13.742C8.967 12.328 8.45 10.4 8.45 9.65C8.45 8.94 8.88 8.43 9.6 8.43C11.285 8.43 12.106 8.281 12.685 8.104C13.71 7.791 14.585 6.768 15.055 5.945C15.137 5.803 14.99 5.641 14.829 5.671C13.829 5.86 12.828 5.376 11.827 4.978C10.659 4.514 9.491 4.707 8.935 4.876C8.805 4.915 8.658 4.819 8.636 4.686C8.468 3.643 7.405 2.615 5.498 2.238C4.54 2.048 3.748 1.574 3.347 1.202C3.252 1.113 3.088 1.125 3.03 1.242C2.628 2.059 2.168 3.82 5.248 6.115C5.82 6.494 6.31 6.785 6.574 7.637C6.72 8.104 6.157 9.168 6.061 9.368C5.157 11.27 5.089 12.19 4.926 13.742" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+        <span class="mem_shimmer">
+          <span class="mem_shimmer_content"><span class="mem_shimmer_text">deepseek 正在睡眠，刚睡着</span></span>
+          <span class="mem_shimmer_decoration" aria-hidden="true" inert>
+            <span class="mem_shimmer_sweep"><span class="mem_shimmer_content mem_shimmer_highlight">
+              <span class="mem_shimmer_text" data-shimmer-text="deepseek 正在睡眠，刚睡着"></span>
+            </span></span>
+          </span>
+        </span>
+        <span class="mem_zzz"><i>z</i><i>z</i><i>z</i></span>
+      </div>
+      <div class="phases">
+        <span class="phase" id="p1">replay</span><span class="phase" id="p2">rewrite</span>
+        <span class="phase" id="p3">downscale</span><span class="phase" id="p4">glymph</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene s4" id="s4">
+    <div class="col">
+      <div class="colHead">before · 1,284 entries</div>
+      <div class="card panel before">
+        <div class="row keep"><span class="k">pref</span>余额面板喜欢统一列表风</div>
+        <div class="row"><span class="k">pref</span>余额面板要统一列表风</div>
+        <div class="row"><span class="k">plan</span>七月要去新加坡</div>
+        <div class="row"><span class="k">fact</span>人在新加坡</div>
+        <div class="row"><span class="k">pref</span>也许喜欢深色主题？</div>
+        <div class="row keep"><span class="k">pref</span>中文文案要统一</div>
+        <div class="row"><span class="k">note</span>用户问过深色主题</div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="colHead">after · 6 entries</div>
+      <div class="card panel after" id="after">
+        <div class="row"><span class="k">pref</span>余额面板：统一列表风，行高一致</div>
+        <div class="row"><span class="k">pref</span>中文界面文案保持一致</div>
+        <div class="row"><span class="k">fact</span>2026 年 7 月去过新加坡</div>
+        <div class="row"><span class="k">lesson</span>交付前自查位置与动效</div>
+      </div>
+      <div class="ftime" id="ftime">时间修订：<s>七月要去新加坡</s> → 2026 年 7 月去过新加坡</div>
+    </div>
+  </section>
+
+  <section class="scene s5" id="s5">
+    <div class="card report">
+      <h3>Dream 2026-11-17</h3>
+      <div class="sub">engine: model · episodes 24 → salient 7 · entries 1,284 → 6</div>
+      <div class="rrow"><span class="n">1</span><span class="t">余额面板：统一列表风，行高一致</span><span class="s">foreground</span></div>
+      <div class="rrow"><span class="n">2</span><span class="t">2026 年 7 月去过新加坡</span><span class="s">time-shifted</span></div>
+      <div class="rrow"><span class="n">3</span><span class="t">中文界面文案保持一致</span><span class="s">foreground</span></div>
+      <div class="rrow"><span class="n">4</span><span class="t">交付前自查位置与动效</span><span class="s">lesson</span></div>
+      <div class="rrow"><span class="n">?</span><span class="t">用户可能仍在比对视觉排布</span><span class="s">hypothesis · low confidence</span></div>
+      <div class="badges"><span class="badge">snapshot saved</span><span class="badge">restore available</span><span class="badge">report written</span></div>
+    </div>
+  </section>
+
+  <section class="scene s6" id="s6">
+    <div>
+      <div class="brand">sleep<span>-memory</span></div>
+      <div class="tag">Sleep-stage memory for AI agents</div>
+      <div class="indicator">
+        <svg class="mem_whale" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8.844 13.742C8.967 12.328 8.45 10.4 8.45 9.65C8.45 8.94 8.88 8.43 9.6 8.43C11.285 8.43 12.106 8.281 12.685 8.104C13.71 7.791 14.585 6.768 15.055 5.945C15.137 5.803 14.99 5.641 14.829 5.671C13.829 5.86 12.828 5.376 11.827 4.978C10.659 4.514 9.491 4.707 8.935 4.876C8.805 4.915 8.658 4.819 8.636 4.686C8.468 3.643 7.405 2.615 5.498 2.238C4.54 2.048 3.748 1.574 3.347 1.202C3.252 1.113 3.088 1.125 3.03 1.242C2.628 2.059 2.168 3.82 5.248 6.115C5.82 6.494 6.31 6.785 6.574 7.637C6.72 8.104 6.157 9.168 6.061 9.368C5.157 11.27 5.089 12.19 4.926 13.742" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+        <span class="mem_shimmer">
+          <span class="mem_shimmer_content"><span class="mem_shimmer_text">deepseek 正在睡眠，已睡 10 分钟</span></span>
+          <span class="mem_shimmer_decoration" aria-hidden="true" inert>
+            <span class="mem_shimmer_sweep"><span class="mem_shimmer_content mem_shimmer_highlight">
+              <span class="mem_shimmer_text" data-shimmer-text="deepseek 正在睡眠，已睡 10 分钟"></span>
+            </span></span>
+          </span>
+        </span>
+        <span class="mem_zzz"><i>z</i><i>z</i><i>z</i></span>
+      </div>
+      <div class="meta">MIT · local · open source · github.com/&lt;you&gt;/sleep-memory</div>
+    </div>
+  </section>
+
+  <div class="caption"><b>sleep-memory</b> · concept demo</div>
+  <div class="bar" id="bar"></div>
+</div>
+<script>
+  const show = (id) => document.getElementById(id).classList.add('on')
+  const hide = (id) => document.getElementById(id).classList.remove('on')
+  const at = (ms, fn) => setTimeout(fn, ms)
+
+  const chips = ['重复的偏好','过时的计划','自相矛盾的记忆','一句假设句','永远不删']
+  const chipHost = document.getElementById('chips')
+  chips.forEach((text, i) => {
+    const el = document.createElement('span')
+    el.className = 'chip'
+    el.textContent = text
+    el.style.animationDelay = (i * 0.18) + 's'
+    chipHost.appendChild(el)
+  })
+
+  const lines = [
+    ['pref', '余额面板喜欢统一列表风', 'keep'],
+    ['pref', '余额面板要统一列表风', 'dup'],
+    ['plan', '七月要去新加坡', 'plan'],
+    ['fact', '人在新加坡', 'bad'],
+    ['pref', '也许喜欢深色主题？', 'bad'],
+    ['note', '用户问过深色主题', 'dup'],
+    ['pref', '中文文案要统一', 'keep'],
+    ['lesson', '交付前自查位置与动效', 'keep'],
+    ['plan', '七月要去新加坡', 'dup'],
+    ['fact', '用户在做小说创作', 'keep'],
+    ['pref', '余额面板要统一列表风', 'dup'],
+    ['note', '用户问过深色主题', 'dup'],
+    ['plan', '七月要去新加坡', 'dup'],
+  ]
+  const lineHost = document.getElementById('lines')
+  const countEl = document.getElementById('count')
+  let total = 0
+  function addLine([kind, text, cls]) {
+    const row = document.createElement('div')
+    row.className = 'ln new ' + (cls === 'dup' ? 'dup' : cls === 'bad' ? 'bad' : '')
+    row.textContent = `${kind.padEnd(6, ' ')} ${text}`
+    lineHost.appendChild(row)
+    if (lineHost.children.length > 14) lineHost.removeChild(lineHost.firstChild)
+    total += Math.floor(Math.random() * 40) + 12
+    countEl.textContent = total.toLocaleString('en-US') + ' entries'
+  }
+
+  // timeline
+  at(300, () => show('s1'))
+  let i = 0
+  const lineTimer = setInterval(() => {
+    addLine(lines[i % lines.length]); i++
+  }, 260)
+  at(4500, () => { hide('s1'); show('s2') })
+  at(10500, () => { clearInterval(lineTimer); hide('s2'); show('s3') })
+  at(11500, () => document.getElementById('p1').classList.add('on'))
+  at(12700, () => document.getElementById('p2').classList.add('on'))
+  at(13900, () => document.getElementById('p3').classList.add('on'))
+  at(15100, () => document.getElementById('p4').classList.add('on'))
+  at(15500, () => { hide('s3'); show('s4') })
+  at(21500, () => { hide('s4'); show('s5') })
+  at(26500, () => { hide('s5'); show('s6') })
+  at(31000, () => { document.getElementById('bar').style.opacity = '0' })
+
+  const bar = document.getElementById('bar')
+  bar.style.transition = 'width 31s linear'
+  requestAnimationFrame(() => { bar.style.width = '100%' })
+</script>
+</body>
+</html>

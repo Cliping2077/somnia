@@ -1,0 +1,17 @@
+{
+  "name": "sleep-memory-reel",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "render": "remotion render src/index.ts SleepMemory out/video.mp4 --codec=h264 --audio-codec=aac"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/noto-serif-sc": "^5.2.8",
+    "@remotion/cli": "^4.0.544",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "^4.0.544"
+  }
+}

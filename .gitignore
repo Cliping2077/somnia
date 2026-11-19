@@ -1,0 +1,16 @@
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+dist/
+.env
+.env.*
+*.tmp
+demo/recordings/
+demo/frame-*.png
+demo/palette.png
+demo/remotion/out/
+demo/remotion/frames/
+demo/remotion/.tmp/
+demo/remotion/public/night.wav
+demo/remotion/public/science.wav

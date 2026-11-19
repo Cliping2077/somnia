@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>sleep-memory — a concept film</title>
+<style>
+  :root{
+    --bg:#07080c; --ink:#f2ede2; --muted:#8d8a80; --gold:#e8c27a; --gold2:#f6e3b8;
+    --blue:#7fb0ff; --line:rgba(255,255,255,.12); --panel:rgba(255,255,255,.045);
+    --serif:"Songti SC","STSong","SimSun",Georgia,serif;
+    --sans:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);overflow:hidden}
+  #stage{position:relative;width:1280px;height:720px;overflow:hidden;background:
+    radial-gradient(900px 520px at 50% 18%, #151a28 0%, #0a0c13 55%, #07080c 100%);
+    color:var(--ink);font-family:var(--sans)}
+  canvas#dust{position:absolute;inset:0;width:100%;height:100%;opacity:.75}
+  .grain{position:absolute;inset:-40px;pointer-events:none;opacity:.07;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/></svg>");
+    animation:grain .9s steps(2) infinite}
+  @keyframes grain{0%{transform:translate(0,0)}25%{transform:translate(-18px,10px)}
+    50%{transform:translate(12px,-14px)}75%{transform:translate(-8px,-6px)}100%{transform:translate(0,0)}}
+  .vignette{position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(120% 90% at 50% 45%, transparent 40%, rgba(0,0,0,.55) 82%, rgba(0,0,0,.85) 100%)}
+
+  .scene{position:absolute;inset:0;display:grid;place-items:center;opacity:0;transition:opacity .8s ease;padding:0 90px}
+  .scene.on{opacity:1}
+  .label{font-size:11px;letter-spacing:.34em;color:var(--gold);text-transform:uppercase;margin-bottom:22px}
+  .label::before{content:"";display:inline-block;width:28px;height:1px;background:var(--gold);vertical-align:middle;margin-right:12px;opacity:.7}
+
+  /* S1 */
+  .s1{text-align:center}
+  .s1 .line{font-family:var(--serif);font-size:64px;line-height:1.18;letter-spacing:.02em}
+  .s1 .line .dim{color:#bdb7aa}
+  .s1 .line .gold{color:var(--gold2)}
+  .s1 .sub{margin-top:22px;font-size:15px;color:var(--muted);letter-spacing:.14em}
+  .rule{width:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:26px auto 0;
+    animation:rule 1.4s 1.1s ease-out forwards}
+  @keyframes rule{to{width:320px}}
+
+  /* S2 */
+  .s2{display:block;padding:0}
+  .s2 .head{position:absolute;top:64px;left:90px;right:90px;display:flex;align-items:baseline;gap:14px}
+  .s2 .head .t{font-family:var(--serif);font-size:26px;color:#e7e1d4}
+  .s2 .head .c{margin-left:auto;font-family:Georgia,serif;font-size:30px;color:var(--gold);font-variant-numeric:tabular-nums}
+  .s2 .head .c small{font-family:var(--sans);font-size:10px;letter-spacing:.2em;color:var(--muted);margin-left:8px}
+  .deck{position:absolute;left:50%;top:54%;width:820px;height:420px;transform:translate(-50%,-50%);perspective:1200px}
+  .card{position:absolute;left:0;top:0;width:100%;padding:16px 22px;border-radius:12px;
+    background:linear-gradient(155deg,rgba(255,255,255,.075),rgba(255,255,255,.025));
+    border:1px solid var(--line);box-shadow:0 18px 40px rgba(0,0,0,.35);
+    font-family:ui-monospace,Consolas,monospace;font-size:13.5px;color:#cfc9bc;
+    opacity:0;transform:translateY(16px) rotateX(8deg)}
+  .card .k{color:var(--gold);font-size:10px;letter-spacing:.16em;margin-right:14px}
+  .card.dup{border-color:rgba(232,120,90,.45);color:#e7b3a4}
+  .card.dup .k{color:#e88a6a}
+  .card.bad{border-color:rgba(220,90,90,.5);color:#e7a1a1}
+  .card.bad .k{color:#e07070}
+  .card.in{animation:cardIn .7s cubic-bezier(.2,.8,.2,1) forwards}
+  @keyframes cardIn{to{opacity:1;transform:none}}
+
+  /* S3 */
+  .s3{text-align:center}
+  .ring{position:absolute;left:50%;top:50%;width:420px;height:420px;transform:translate(-50%,-50%);
+    border-radius:50%;border:1px solid rgba(127,176,255,.18)}
+  .ring::after{content:"";position:absolute;inset:26px;border-radius:50%;border:1px dashed rgba(127,176,255,.12)}
+  .glow{position:absolute;left:50%;top:50%;width:520px;height:520px;transform:translate(-50%,-50%);
+    background:radial-gradient(circle,rgba(95,150,255,.18),transparent 62%);filter:blur(6px)}
+  .sleep{position:relative;display:flex;align-items:center;gap:12px;justify-content:center;
+    font-size:30px;line-height:42px;color:var(--blue);white-space:nowrap;font-variant-numeric:tabular-nums;
+    text-shadow:0 0 26px rgba(110,160,255,.35)}
+  .mem_whale{width:30px;height:30px;flex:none;overflow:visible;transform-origin:35% 75%;animation:wag 3.4s ease-in-out infinite}
+  .mem_shimmer{position:relative;display:inline-grid;width:max-content;color:inherit}
+  .mem_shimmer_content{display:flex;align-items:center}
+  .mem_shimmer_text{color:inherit}
+  .mem_shimmer_text[data-shimmer-text]:after{content:attr(data-shimmer-text)}
+  .mem_shimmer_decoration{position:absolute;inset:0;overflow:clip;pointer-events:none}
+  .mem_shimmer_sweep{position:absolute;inset:0;overflow:hidden;color:#dfeaff;
+    mask-image:linear-gradient(105deg,transparent 0%,black 40% 60%,transparent 100%);
+    -webkit-mask-image:linear-gradient(105deg,transparent 0%,black 40% 60%,transparent 100%);
+    transform:translate(-100%);animation:sweep 1.5s steps(48,end) .3s infinite}
+  .mem_shimmer_highlight{width:100%;height:100%;transform:translate(100%);animation:highlight 1.5s steps(48,end) .3s infinite}
+  .mem_zzz{position:relative;width:44px;height:28px;flex:none;margin-left:-2px;align-self:center}
+  .mem_zzz i{position:absolute;left:0;font-style:italic;font-weight:600;line-height:1;color:var(--blue);
+    animation:rise 2.4s ease-in-out infinite}
+  .mem_zzz i:nth-child(1){font-size:13px;left:0;bottom:0;animation-delay:0s}
+  .mem_zzz i:nth-child(2){font-size:13px;left:11px;bottom:5px;animation-delay:.3s}
+  .mem_zzz i:nth-child(3){font-size:15px;left:22px;bottom:10px;animation-delay:.6s}
+  .phases{display:flex;gap:26px;margin-top:44px;justify-content:center}
+  .phase{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#6b7280;transition:color .4s}
+  .phase.on{color:var(--blue)}
+  .phase.on::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--blue);
+    margin-right:8px;vertical-align:middle;box-shadow:0 0 12px var(--blue)}
+  .s3 .cap{position:absolute;bottom:84px;left:0;right:0;text-align:center;font-size:12px;color:var(--muted);letter-spacing:.2em}
+
+  /* S4 */
+  .s4{display:block;padding:0}
+  .s4 .head{position:absolute;top:64px;left:90px;right:90px;display:flex;align-items:baseline}
+  .s4 .head .t{font-family:var(--serif);font-size:26px;color:#e7e1d4}
+  .s4 .head .c{margin-left:auto;font-family:Georgia,serif;font-size:30px;color:var(--gold)}
+  .cols{position:absolute;left:90px;right:90px;top:150px;bottom:150px;display:grid;grid-template-columns:1fr 1fr;gap:40px}
+  .col{position:relative;padding:22px 24px;border-radius:14px;background:var(--panel);border:1px solid var(--line);overflow:hidden}
+  .col h4{margin:0 0 14px;font-size:10px;letter-spacing:.28em;color:var(--muted);font-weight:500}
+  .row{display:flex;gap:12px;align-items:baseline;font-size:14px;padding:8px 0;color:#cfc9bc}
+  .row .k{font-size:9px;letter-spacing:.16em;color:var(--gold);width:52px;flex:none}
+  .before .row{color:#7d7a72;text-decoration:line-through;text-decoration-color:rgba(220,120,110,.45)}
+  .before .row.keep{color:#b9b3a7;text-decoration:none}
+  .after .row{opacity:0;transform:translateY(8px);animation:rowIn .45s forwards}
+  .after .row .k{color:var(--gold)}
+  @keyframes rowIn{to{opacity:1;transform:none}}
+  .ftime{position:absolute;left:90px;right:90px;bottom:84px;text-align:center;font-size:13px;color:var(--gold2);
+    letter-spacing:.06em}
+  .ftime s{color:#7d7a72}
+
+  /* S5 */
+  .report{position:relative;width:760px;padding:30px 34px;border-radius:16px;
+    background:linear-gradient(160deg,rgba(255,255,255,.07),rgba(255,255,255,.02));
+    border:1px solid var(--line);box-shadow:0 30px 80px rgba(0,0,0,.5)}
+  .report .h{display:flex;align-items:baseline;gap:12px}
+  .report h3{margin:0;font-family:var(--serif);font-size:26px;color:#f1ebdf;font-weight:400}
+  .report .h span{margin-left:auto;font-size:10px;letter-spacing:.24em;color:var(--gold)}
+  .report .sub{margin:8px 0 18px;font-size:11px;color:var(--muted);letter-spacing:.08em}
+  .rrow{display:flex;align-items:baseline;gap:14px;padding:10px 0;border-top:1px solid rgba(255,255,255,.07);font-size:14px;color:#d7d1c4}
+  .rrow .n{font-family:Georgia,serif;color:var(--gold);font-size:13px;width:20px}
+  .rrow .s{margin-left:auto;font-size:10px;letter-spacing:.16em;color:#7b808c}
+  .coin{position:absolute;right:-52px;bottom:-56px;width:92px;height:92px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#fff3cf,var(--gold) 45%,#9a7434 100%);
+    box-shadow:0 0 40px rgba(232,194,122,.35),inset 0 0 14px rgba(255,255,255,.5);
+    display:grid;place-items:center;color:#5c4318;font-family:Georgia,serif;font-size:11px;letter-spacing:.08em;
+    animation:coin 3.2s ease-in-out infinite}
+  @keyframes coin{0%,100%{transform:rotateY(0)}50%{transform:rotateY(38deg)}}
+
+  /* S6 */
+  .s6{text-align:center}
+  .s6 .mark{font-family:var(--serif);font-size:76px;letter-spacing:-.01em}
+  .s6 .mark span{color:var(--blue)}
+  .s6 .tag{margin-top:12px;font-size:16px;color:var(--muted);letter-spacing:.18em}
+  .s6 .meta{margin-top:34px;font-size:11px;color:#6c707a;letter-spacing:.22em}
+  .s6 .sleep{font-size:22px;margin-top:38px}
+
+  .bar{position:absolute;left:0;bottom:0;height:1px;background:linear-gradient(90deg,var(--gold),transparent);width:0;opacity:.7}
+  @keyframes wag{0%,100%{transform:rotate(0) translateY(0)}50%{transform:rotate(-6deg) translateY(-1px)}}
+  @keyframes sweep{0%{transform:translate(-100%)}66.6667%,to{transform:translate(100%)}}
+  @keyframes highlight{0%{transform:translate(100%)}66.6667%,to{transform:translate(-100%)}}
+  @keyframes rise{0%{opacity:0;transform:translate(0,0)}25%{opacity:1}70%{opacity:.9}100%{opacity:0;transform:translate(5px,-5px)}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="dust"></canvas>
+  <div class="vignette"></div>
+  <div class="grain"></div>
+
+  <section class="scene s1" id="s1">
+    <div>
+      <div class="label">a concept film</div>
+      <div class="line"><span class="dim">大多数 Agent 记忆</span><br><span class="gold">只会追加。</span></div>
+      <div class="sub">重复 · 矛盾 · 过时 · 永不遗忘</div>
+      <div class="rule"></div>
+    </div>
+  </section>
+
+  <section class="scene s2" id="s2">
+    <div class="head">
+      <div class="t">它记得越来越多</div>
+      <div class="c" id="count">0<small>ENTRIES</small></div>
+    </div>
+    <div class="deck" id="deck"></div>
+  </section>
+
+  <section class="scene s3" id="s3">
+    <div class="ring"></div>
+    <div class="glow"></div>
+    <div>
+      <div class="sleep">
+        <svg class="mem_whale" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8.844 13.742C8.967 12.328 8.45 10.4 8.45 9.65C8.45 8.94 8.88 8.43 9.6 8.43C11.285 8.43 12.106 8.281 12.685 8.104C13.71 7.791 14.585 6.768 15.055 5.945C15.137 5.803 14.99 5.641 14.829 5.671C13.829 5.86 12.828 5.376 11.827 4.978C10.659 4.514 9.491 4.707 8.935 4.876C8.805 4.915 8.658 4.819 8.636 4.686C8.468 3.643 7.405 2.615 5.498 2.238C4.54 2.048 3.748 1.574 3.347 1.202C3.252 1.113 3.088 1.125 3.03 1.242C2.628 2.059 2.168 3.82 5.248 6.115C5.82 6.494 6.31 6.785 6.574 7.637C6.72 8.104 6.157 9.168 6.061 9.368C5.157 11.27 5.089 12.19 4.926 13.742" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+        <span class="mem_shimmer">
+          <span class="mem_shimmer_content"><span class="mem_shimmer_text">deepseek 正在睡眠，刚睡着</span></span>
+          <span class="mem_shimmer_decoration" aria-hidden="true" inert>
+            <span class="mem_shimmer_sweep"><span class="mem_shimmer_content mem_shimmer_highlight">
+              <span class="mem_shimmer_text" data-shimmer-text="deepseek 正在睡眠，刚睡着"></span>
+            </span></span>
+          </span>
+        </span>
+        <span class="mem_zzz"><i>z</i><i>z</i><i>z</i></span>
+      </div>
+      <div class="phases">
+        <span class="phase" id="p1">replay</span><span class="phase" id="p2">rewrite</span>
+        <span class="phase" id="p3">downscale</span><span class="phase" id="p4">glymph</span>
+      </div>
+    </div>
+    <div class="cap">没有新对话，也没有打扰。只是睡着了。</div>
+  </section>
+
+  <section class="scene s4" id="s4">
+    <div class="head"><div class="t">梦会重写，而不是追加</div><div class="c">1,284 → 6</div></div>
+    <div class="cols">
+      <div class="col before">
+        <h4>BEFORE</h4>
+        <div class="row keep"><span class="k">PREF</span>余额面板喜欢统一列表风</div>
+        <div class="row"><span class="k">PREF</span>余额面板要统一列表风</div>
+        <div class="row"><span class="k">PLAN</span>七月要去新加坡</div>
+        <div class="row"><span class="k">FACT</span>人在新加坡</div>
+        <div class="row"><span class="k">PREF</span>也许喜欢深色主题？</div>
+        <div class="row keep"><span class="k">PREF</span>中文文案要统一</div>
+        <div class="row"><span class="k">NOTE</span>用户问过深色主题</div>
+      </div>
+      <div class="col after" id="after">
+        <h4>AFTER</h4>
+        <div class="row"><span class="k">PREF</span>余额面板：统一列表风，行高一致</div>
+        <div class="row"><span class="k">PREF</span>中文界面文案保持一致</div>
+        <div class="row"><span class="k">FACT</span>2026 年 7 月去过新加坡</div>
+        <div class="row"><span class="k">LESSON</span>交付前自查位置与动效</div>
+      </div>
+    </div>
+    <div class="ftime">时间修订：<s>七月要去新加坡</s> → 2026 年 7 月去过新加坡</div>
+  </section>
+
+  <section class="scene s5" id="s5">
+    <div class="report">
+      <div class="h"><h3>Dream 2026-11-17</h3><span>ENGINE · MODEL</span></div>
+      <div class="sub">episodes 24 → salient 7 · entries 1,284 → 6 · hypotheses 2</div>
+      <div class="rrow"><span class="n">1</span>余额面板：统一列表风，行高一致<span class="s">FOREGROUND</span></div>
+      <div class="rrow"><span class="n">2</span>2026 年 7 月去过新加坡<span class="s">TIME-SHIFTED</span></div>
+      <div class="rrow"><span class="n">3</span>中文界面文案保持一致<span class="s">FOREGROUND</span></div>
+      <div class="rrow"><span class="n">4</span>用户可能仍在比对视觉排布<span class="s">HYPOTHESIS</span></div>
+      <div class="coin">SNAPSHOT</div>
+    </div>
+  </section>
+
+  <section class="scene s6" id="s6">
+    <div>
+      <div class="mark">sleep<span>-memory</span></div>
+      <div class="tag">AI 也会做梦。</div>
+      <div class="sleep">
+        <svg class="mem_whale" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8.844 13.742C8.967 12.328 8.45 10.4 8.45 9.65C8.45 8.94 8.88 8.43 9.6 8.43C11.285 8.43 12.106 8.281 12.685 8.104C13.71 7.791 14.585 6.768 15.055 5.945C15.137 5.803 14.99 5.641 14.829 5.671C13.829 5.86 12.828 5.376 11.827 4.978C10.659 4.514 9.491 4.707 8.935 4.876C8.805 4.915 8.658 4.819 8.636 4.686C8.468 3.643 7.405 2.615 5.498 2.238C4.54 2.048 3.748 1.574 3.347 1.202C3.252 1.113 3.088 1.125 3.03 1.242C2.628 2.059 2.168 3.82 5.248 6.115C5.82 6.494 6.31 6.785 6.574 7.637C6.72 8.104 6.157 9.168 6.061 9.368C5.157 11.27 5.089 12.19 4.926 13.742" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+        <span class="mem_shimmer">
+          <span class="mem_shimmer_content"><span class="mem_shimmer_text">deepseek 正在睡眠，已睡 10 分钟</span></span>
+          <span class="mem_shimmer_decoration" aria-hidden="true" inert>
+            <span class="mem_shimmer_sweep"><span class="mem_shimmer_content mem_shimmer_highlight">
+              <span class="mem_shimmer_text" data-shimmer-text="deepseek 正在睡眠，已睡 10 分钟"></span>
+            </span></span>
+          </span>
+        </span>
+        <span class="mem_zzz"><i>z</i><i>z</i><i>z</i></span>
+      </div>
+      <div class="meta">MIT · LOCAL · OPEN SOURCE</div>
+    </div>
+  </section>
+
+  <div class="bar" id="bar"></div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id)
+  const at = (ms, fn) => setTimeout(fn, ms)
+  const show = (id) => $(id).classList.add('on')
+  const hide = (id) => $(id).classList.remove('on')
+
+  // dust
+  const canvas = $('dust')
+  const ctx = canvas.getContext('2d')
+  let W = 1280, H = 720
+  canvas.width = W; canvas.height = H
+  const dots = Array.from({ length: 110 }, () => ({
+    x: Math.random() * W, y: Math.random() * H, r: Math.random() * 1.4 + .3,
+    vx: (Math.random() - .5) * .12, vy: -Math.random() * .18 - .03, a: Math.random() * .5 + .1,
+  }))
+  function dust() {
+    ctx.clearRect(0, 0, W, H)
+    for (const d of dots) {
+      d.x += d.vx; d.y += d.vy
+      if (d.y < -4) { d.y = H + 4; d.x = Math.random() * W }
+      if (d.x < -4) d.x = W + 4
+      if (d.x > W + 4) d.x = -4
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2)
+      ctx.fillStyle = `rgba(232,214,180,${d.a})`; ctx.fill()
+    }
+    requestAnimationFrame(dust)
+  }
+  dust()
+
+  // memory cards
+  const deck = $('deck')
+  const lines = [
+    ['PREF', '余额面板喜欢统一列表风', ''],
+    ['PREF', '余额面板要统一列表风', 'dup'],
+    ['PLAN', '七月要去新加坡', ''],
+    ['FACT', '人在新加坡', 'bad'],
+    ['PREF', '也许喜欢深色主题？', 'bad'],
+    ['NOTE', '用户问过深色主题', 'dup'],
+    ['PREF', '中文文案要统一', ''],
+    ['LESSON', '交付前自查位置与动效', ''],
+    ['PLAN', '七月要去新加坡', 'dup'],
+  ]
+  let count = 0
+  lines.forEach(([k, text, cls], i) => {
+    const el = document.createElement('div')
+    el.className = 'card ' + cls
+    el.style.top = (i * 44) + 'px'
+    el.style.transform = `translateY(16px) rotateX(8deg) translateZ(${-i * 6}px)`
+    el.innerHTML = `<span class="k">${k}</span>${text}`
+    deck.appendChild(el)
+    at(4700 + i * 320, () => {
+      el.classList.add('in')
+      count += Math.floor(Math.random() * 90) + 40
+      $('count').innerHTML = count.toLocaleString('en-US') + '<small>ENTRIES</small>'
+    })
+  })
+
+  // timeline
+  at(300, () => show('s1'))
+  at(4600, () => { hide('s1'); show('s2') })
+  at(10800, () => { hide('s2'); show('s3') })
+  at(11500, () => $('p1').classList.add('on'))
+  at(12700, () => $('p2').classList.add('on'))
+  at(13900, () => $('p3').classList.add('on'))
+  at(15100, () => $('p4').classList.add('on'))
+  at(16400, () => { hide('s3'); show('s4') })
+  at(22800, () => { hide('s4'); show('s5') })
+  at(27800, () => { hide('s5'); show('s6') })
+
+  const bar = $('bar')
+  bar.style.transition = 'width 33s linear'
+  requestAnimationFrame(() => { bar.style.width = '100%' })
+</script>
+</body>
+</html>

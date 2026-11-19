@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>sleep-memory — rhythm cut</title>
+<style>
+  :root{--bg:#f4f5f7;--ink:#14161a;--blue:#4C8DFF;--muted:#8a8f99;--line:#e3e5e9;--red:#e05a4f;
+    --sans:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);overflow:hidden}
+  #stage{position:relative;width:1280px;height:720px;overflow:hidden;background:
+    radial-gradient(900px 520px at 50% 20%,#ffffff 0%,#f4f5f7 60%,#eef0f3 100%);
+    color:var(--ink);font-family:var(--sans)}
+  .grid{position:absolute;inset:0;opacity:.5;
+    background-image:radial-gradient(rgba(20,22,26,.08) 1px,transparent 1px);
+    background-size:26px 26px;mask-image:radial-gradient(80% 70% at 50% 50%,black,transparent)}
+  .scene{position:absolute;inset:0;display:none;place-items:center;padding:0 90px}
+  .scene.on{display:grid}
+  .reveal{opacity:0}
+  .scene.on .reveal{animation:rise .34s cubic-bezier(.16,.9,.2,1) forwards;animation-delay:var(--d,0s)}
+  @keyframes rise{0%{opacity:0;transform:translateY(26px) scale(.985)}100%{opacity:1;transform:none}}
+  .flash{position:absolute;inset:0;background:var(--blue);opacity:0;pointer-events:none;z-index:9}
+  .flash.go{animation:flash .16s ease-out}
+  @keyframes flash{0%{opacity:.5}100%{opacity:0}}
+  #stage.shake{animation:shake .2s}
+  @keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-3px,2px)}
+    50%{transform:translate(3px,-2px)}75%{transform:translate(-2px,-1px)}}
+  .brand{position:absolute;top:22px;left:28px;display:flex;align-items:center;gap:9px;font-size:12px;color:var(--muted);z-index:6}
+  .brand b{color:var(--ink);font-weight:600}
+  .brand .d{width:16px;height:16px;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;font-size:9px;font-weight:700}
+  .bpm{position:absolute;top:22px;right:28px;font-size:10px;letter-spacing:.2em;color:#b3b7bf;z-index:6}
+  .bar{position:absolute;left:0;bottom:0;height:2px;background:var(--blue);width:0;opacity:.8}
+
+  /* s1 */
+  .s1{text-align:center}
+  .s1 .kicker{font-size:11px;letter-spacing:.34em;color:var(--blue);margin-bottom:22px}
+  .s1 .line{font-size:70px;line-height:1.1;font-weight:700;letter-spacing:-.02em}
+  .s1 .line .w{display:inline-block;opacity:0}
+  .s1.on .w{animation:word .32s cubic-bezier(.2,.9,.2,1) forwards;animation-delay:var(--d,0s)}
+  @keyframes word{0%{opacity:0;transform:translateY(34px)}100%{opacity:1;transform:none}}
+  .s1 .gold{color:var(--blue)}
+  .s1 .sub{margin-top:18px;font-size:14px;color:var(--muted);letter-spacing:.16em}
+  .s1 .rule{height:3px;width:0;background:var(--blue);margin:24px auto 0}
+  .s1.on .rule{animation:rule .5s .9s cubic-bezier(.2,.9,.2,1) forwards}
+  @keyframes rule{to{width:180px}}
+
+  /* s2 */
+  .s2{display:block;padding:0}
+  .s2head{position:absolute;top:58px;left:90px;right:90px;display:flex;align-items:baseline;gap:12px}
+  .s2head .t{font-size:22px;font-weight:600}
+  .s2head .c{margin-left:auto;font-size:44px;font-weight:800;letter-spacing:-.03em;color:var(--blue);
+    font-variant-numeric:tabular-nums}
+  .s2head .c small{font-size:10px;letter-spacing:.2em;color:var(--muted);margin-left:8px;font-weight:600}
+  .deck{position:absolute;left:50%;top:53%;width:820px;transform:translate(-50%,-50%);perspective:1000px}
+  .deck.zoom{transform:translate(-50%,-50%) scale(1.06);transition:transform .12s}
+  .card{position:absolute;left:0;width:100%;padding:13px 20px;border-radius:10px;background:#fff;
+    border:1px solid var(--line);box-shadow:0 10px 24px rgba(20,30,60,.08);
+    font-family:ui-monospace,Consolas,monospace;font-size:13px;color:#3c434e;opacity:0}
+  .card .k{color:var(--blue);font-size:9.5px;letter-spacing:.14em;margin-right:12px}
+  .card.dup{border-color:rgba(224,90,79,.45);color:#b4483f;background:#fff8f7}
+  .card.dup .k{color:var(--red)}
+  .card.bad{border-color:rgba(224,90,79,.6);background:#fff3f2;color:#a83c34}
+  .card.bad .k{color:var(--red)}
+  .card.in{animation:cardIn .26s cubic-bezier(.2,.9,.2,1) forwards}
+  @keyframes cardIn{0%{opacity:0;transform:translateY(18px) rotate(-1.5deg) scale(.97)}
+    100%{opacity:1;transform:none}}
+
+  /* s3a */
+  .s3a .big{font-size:86px;font-weight:800;letter-spacing:-.04em;line-height:1.05;text-align:center}
+  .s3a .big span{color:var(--blue)}
+  .s3a .small{margin-top:18px;color:var(--muted);font-size:14px;letter-spacing:.16em;text-align:center}
+
+  /* s3b */
+  .s3b{text-align:center}
+  .sleep{display:flex;align-items:center;gap:12px;justify-content:center;font-size:34px;line-height:46px;
+    color:var(--blue);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .mem_whale{width:32px;height:32px;flex:none;overflow:visible;transform-origin:35% 75%;animation:wag 3.4s ease-in-out infinite}
+  .mem_shimmer{position:relative;display:inline-grid;width:max-content;color:inherit}
+  .mem_shimmer_content{display:flex;align-items:center}
+  .mem_shimmer_text{color:inherit}
+  .mem_shimmer_text[data-shimmer-text]:after{content:attr(data-shimmer-text)}
+  .mem_shimmer_decoration{position:absolute;inset:0;overflow:clip;pointer-events:none}
+  .mem_shimmer_sweep{position:absolute;inset:0;overflow:hidden;color:#dfeaff;
+    mask-image:linear-gradient(105deg,transparent 0%,black 40% 60%,transparent 100%);
+    -webkit-mask-image:linear-gradient(105deg,transparent 0%,black 40% 60%,transparent 100%);
+    transform:translate(-100%);animation:sweep 1.5s steps(48,end) .3s infinite}
+  .mem_shimmer_highlight{width:100%;height:100%;transform:translate(100%);animation:highlight 1.5s steps(48,end) .3s infinite}
+  .mem_zzz{position:relative;width:48px;height:30px;flex:none;margin-left:-2px;align-self:center}
+  .mem_zzz i{position:absolute;left:0;font-style:italic;font-weight:600;line-height:1;color:var(--blue);animation:rise 2.4s ease-in-out infinite}
+  .mem_zzz i:nth-child(1){font-size:14px;left:0;bottom:0;animation-delay:0s}
+  .mem_zzz i:nth-child(2){font-size:14px;left:12px;bottom:6px;animation-delay:.3s}
+  .mem_zzz i:nth-child(3){font-size:16px;left:24px;bottom:11px;animation-delay:.6s}
+  .phases{display:flex;gap:10px;justify-content:center;margin-top:42px}
+  .phase{padding:8px 16px;border:1px solid var(--line);border-radius:999px;background:#fff;
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#b3b7bf;transition:all .12s}
+  .phase.on{color:var(--blue);border-color:rgba(76,141,255,.5);box-shadow:0 6px 18px rgba(76,141,255,.18);transform:translateY(-2px)}
+  .s3b .cap{position:absolute;bottom:92px;left:0;right:0;text-align:center;font-size:12px;color:var(--muted);letter-spacing:.18em}
+  @keyframes wag{0%,100%{transform:rotate(0) translateY(0)}50%{transform:rotate(-6deg) translateY(-1px)}}
+  @keyframes sweep{0%{transform:translate(-100%)}66.6667%,to{transform:translate(100%)}}
+  @keyframes highlight{0%{transform:translate(100%)}66.6667%,to{transform:translate(-100%)}}
+  @keyframes rise{0%{opacity:0;transform:translate(0,0)}25%{opacity:1}70%{opacity:.9}100%{opacity:0;transform:translate(5px,-5px)}}
+
+  /* s4 */
+  .s4{display:block;padding:0}
+  .s4head{position:absolute;top:58px;left:90px;right:90px;display:flex;align-items:baseline}
+  .s4head .t{font-size:22px;font-weight:600}
+  .s4head .c{margin-left:auto;font-size:30px;font-weight:800;color:var(--blue);letter-spacing:-.02em}
+  .cols{position:absolute;left:90px;right:90px;top:140px;bottom:150px;display:grid;grid-template-columns:1fr 1fr;gap:36px}
+  .col{padding:20px 22px;border-radius:12px;background:#fff;border:1px solid var(--line);overflow:hidden}
+  .col h4{margin:0 0 12px;font-size:10px;letter-spacing:.26em;color:#b3b7bf;font-weight:600}
+  .row{display:flex;gap:10px;align-items:baseline;font-size:13.5px;padding:8px 0;color:#3c434e}
+  .row .k{width:52px;flex:none;font-size:9px;letter-spacing:.14em;color:var(--blue)}
+  .before .row{color:#9aa0a9;text-decoration:line-through;text-decoration-color:rgba(224,90,79,.5)}
+  .before .row.keep{color:#5b626c;text-decoration:none}
+  .after .row{opacity:0}
+  .after .row.pop{animation:pop .22s ease-out forwards}
+  @keyframes pop{0%{opacity:0;transform:translateX(-8px)}100%{opacity:1;transform:none}}
+  .ftime{position:absolute;left:90px;right:90px;bottom:84px;text-align:center;font-size:13px;color:var(--blue);font-weight:600}
+  .ftime s{color:#a6abb4;font-weight:400}
+
+  /* s5 */
+  .report{width:760px;padding:28px 32px;border-radius:14px;background:#fff;border:1px solid var(--line);
+    box-shadow:0 24px 60px rgba(20,30,60,.12);position:relative}
+  .report .h{display:flex;align-items:baseline}
+  .report h3{margin:0;font-size:24px;font-weight:800;letter-spacing:-.02em}
+  .report .h span{margin-left:auto;font-size:9px;letter-spacing:.22em;color:var(--blue);font-weight:700}
+  .report .sub{margin:6px 0 16px;font-size:11px;color:var(--muted);letter-spacing:.06em}
+  .rrow{display:flex;gap:12px;align-items:baseline;padding:9px 0;border-top:1px solid #f0f1f4;font-size:13.5px;color:#3c434e;opacity:0}
+  .rrow .n{width:18px;color:var(--blue);font-weight:800;font-size:12px}
+  .rrow .s{margin-left:auto;font-size:9px;letter-spacing:.14em;color:#b3b7bf}
+  .rrow.pop{animation:pop .2s forwards}
+  .coin{position:absolute;right:-40px;bottom:-44px;width:88px;height:88px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#eaf2ff,var(--blue) 50%,#2f6fe0 100%);
+    box-shadow:0 14px 30px rgba(76,141,255,.35);display:grid;place-items:center;color:#fff;
+    font-size:9px;font-weight:800;letter-spacing:.1em;transform:scale(0)}
+  .coin.pop{animation:coinPop .3s cubic-bezier(.2,1.4,.4,1) forwards}
+  @keyframes coinPop{to{transform:scale(1)}}
+
+  /* s6 */
+  .s6{text-align:center}
+  .s6 .mark{font-size:82px;font-weight:800;letter-spacing:-.05em}
+  .s6 .mark span{color:var(--blue)}
+  .s6 .tag{margin-top:10px;font-size:16px;color:var(--muted);letter-spacing:.16em}
+  .s6 .meta{margin-top:26px;font-size:11px;color:#b3b7bf;letter-spacing:.2em}
+  .s6 .sleep{font-size:24px;margin-top:34px}
+  .endfade{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:10}
+  .endfade.go{animation:fadeout .8s .2s forwards}
+  @keyframes fadeout{to{opacity:1}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="grid"></div>
+  <div class="flash" id="flash"></div>
+  <div class="brand"><span class="d">s</span><b>sleep-memory</b> <span>for DeepSeek Harness</span></div>
+  <div class="bpm">120 BPM</div>
+
+  <section class="scene s1 on" id="s1">
+    <div>
+      <div class="kicker">A 30-SECOND CUT</div>
+      <div class="line">
+        <span class="w" style="--d:.05s">大多数</span>
+        <span class="w" style="--d:.55s">Agent</span>
+        <span class="w" style="--d:1.05s">记忆</span><br>
+        <span class="w gold" style="--d:1.55s">只会追加。</span>
+      </div>
+      <div class="sub reveal" style="--d:1.9s">重复 · 矛盾 · 过时 · 永不遗忘</div>
+      <div class="rule"></div>
+    </div>
+  </section>
+
+  <section class="scene s2" id="s2">
+    <div class="s2head"><div class="t">它记得越来越多</div><div class="c" id="count">0<small>ENTRIES</small></div></div>
+    <div class="deck" id="deck"></div>
+  </section>
+
+  <section class="scene s3a" id="s3a">
+    <div>
+      <div class="big reveal">让它<span>睡一觉。</span></div>
+      <div class="small reveal" style="--d:.25s">没有新对话，也不打扰你。</div>
+    </div>
+  </section>
+
+  <section class="scene s3b" id="s3b">
+    <div>
+      <div class="sleep reveal">
+        <svg class="mem_whale" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8.844 13.742C8.967 12.328 8.45 10.4 8.45 9.65C8.45 8.94 8.88 8.43 9.6 8.43C11.285 8.43 12.106 8.281 12.685 8.104C13.71 7.791 14.585 6.768 15.055 5.945C15.137 5.803 14.99 5.641 14.829 5.671C13.829 5.86 12.828 5.376 11.827 4.978C10.659 4.514 9.491 4.707 8.935 4.876C8.805 4.915 8.658 4.819 8.636 4.686C8.468 3.643 7.405 2.615 5.498 2.238C4.54 2.048 3.748 1.574 3.347 1.202C3.252 1.113 3.088 1.125 3.03 1.242C2.628 2.059 2.168 3.82 5.248 6.115C5.82 6.494 6.31 6.785 6.574 7.637C6.72 8.104 6.157 9.168 6.061 9.368C5.157 11.27 5.089 12.19 4.926 13.742" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+        <span class="mem_shimmer">
+          <span class="mem_shimmer_content"><span class="mem_shimmer_text">deepseek 正在睡眠，刚睡着</span></span>
+          <span class="mem_shimmer_decoration" aria-hidden="true" inert>
+            <span class="mem_shimmer_sweep"><span class="mem_shimmer_content mem_shimmer_highlight">
+              <span class="mem_shimmer_text" data-shimmer-text="deepseek 正在睡眠，刚睡着"></span>
+            </span></span>
+          </span>
+        </span>
+        <span class="mem_zzz"><i>z</i><i>z</i><i>z</i></span>
+      </div>
+      <div class="phases">
+        <span class="phase" id="p1">replay</span><span class="phase" id="p2">rewrite</span>
+        <span class="phase" id="p3">downscale</span><span class="phase" id="p4">glymph</span>
+      </div>
+    </div>
+    <div class="cap reveal" style="--d:.2s">没有新对话，也没有打扰。只是睡着了。</div>
+  </section>
+
+  <section class="scene s4" id="s4">
+    <div class="s4head"><div class="t">梦会重写，而不是追加</div><div class="c">1,284 → 6</div></div>
+    <div class="cols">
+      <div class="col before">
+        <h4>BEFORE</h4>
+        <div class="row keep"><span class="k">PREF</span>余额面板喜欢统一列表风</div>
+        <div class="row"><span class="k">PREF</span>余额面板要统一列表风</div>
+        <div class="row"><span class="k">PLAN</span>七月要去新加坡</div>
+        <div class="row"><span class="k">FACT</span>人在新加坡</div>
+        <div class="row"><span class="k">PREF</span>也许喜欢深色主题？</div>
+        <div class="row keep"><span class="k">PREF</span>中文文案要统一</div>
+        <div class="row"><span class="k">NOTE</span>用户问过深色主题</div>
+      </div>
+      <div class="col after" id="after">
+        <h4>AFTER</h4>
+        <div class="row"><span class="k">PREF</span>余额面板：统一列表风，行高一致</div>
+        <div class="row"><span class="k">PREF</span>中文界面文案保持一致</div>
+        <div class="row"><span class="k">FACT</span>2026 年 7 月去过新加坡</div>
+        <div class="row"><span class="k">LESSON</span>交付前自查位置与动效</div>
+      </div>
+    </div>
+    <div class="ftime" id="ftime">时间修订：<s>七月要去新加坡</s> → 2026 年 7 月去过新加坡</div>
+  </section>
+
+  <section class="scene s5" id="s5">
+    <div class="report">
+      <div class="h"><h3>Dream 2026-11-17</h3><span>ENGINE · MODEL</span></div>
+      <div class="sub">episodes 24 → salient 7 · entries 1,284 → 6 · hypotheses 2</div>
+      <div class="rrow"><span class="n">1</span>余额面板：统一列表风，行高一致<span class="s">FOREGROUND</span></div>
+      <div class="rrow"><span class="n">2</span>2026 年 7 月去过新加坡<span class="s">TIME-SHIFTED</span></div>
+      <div class="rrow"><span class="n">3</span>中文界面文案保持一致<span class="s">FOREGROUND</span></div>
+      <div class="rrow"><span class="n">4</span>用户可能仍在比对视觉排布<span class="s">HYPOTHESIS</span></div>
+      <div class="coin" id="coin">SNAPSHOT</div>
+    </div>
+  </section>
+
+  <section class="scene s6" id="s6">
+    <div>
+      <div class="mark reveal">sleep<span>-memory</span></div>
+      <div class="tag reveal" style="--d:.15s">AI 也会做梦。</div>
+      <div class="sleep reveal" style="--d:.35s">
+        <svg class="mem_whale" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8.844 13.742C8.967 12.328 8.45 10.4 8.45 9.65C8.45 8.94 8.88 8.43 9.6 8.43C11.285 8.43 12.106 8.281 12.685 8.104C13.71 7.791 14.585 6.768 15.055 5.945C15.137 5.803 14.99 5.641 14.829 5.671C13.829 5.86 12.828 5.376 11.827 4.978C10.659 4.514 9.491 4.707 8.935 4.876C8.805 4.915 8.658 4.819 8.636 4.686C8.468 3.643 7.405 2.615 5.498 2.238C4.54 2.048 3.748 1.574 3.347 1.202C3.252 1.113 3.088 1.125 3.03 1.242C2.628 2.059 2.168 3.82 5.248 6.115C5.82 6.494 6.31 6.785 6.574 7.637C6.72 8.104 6.157 9.168 6.061 9.368C5.157 11.27 5.089 12.19 4.926 13.742" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+        <span class="mem_shimmer">
+          <span class="mem_shimmer_content"><span class="mem_shimmer_text">deepseek 正在睡眠，已睡 10 分钟</span></span>
+          <span class="mem_shimmer_decoration" aria-hidden="true" inert>
+            <span class="mem_shimmer_sweep"><span class="mem_shimmer_content mem_shimmer_highlight">
+              <span class="mem_shimmer_text" data-shimmer-text="deepseek 正在睡眠，已睡 10 分钟"></span>
+            </span></span>
+          </span>
+        </span>
+        <span class="mem_zzz"><i>z</i><i>z</i><i>z</i></span>
+      </div>
+      <div class="meta reveal" style="--d:.55s">MIT · LOCAL · OPEN SOURCE</div>
+    </div>
+  </section>
+
+  <div class="endfade" id="endfade"></div>
+  <div class="bar" id="bar"></div>
+</div>
+<script>
+  const $ = (id) => document.getElementById(id)
+  const stage = $('stage')
+  const flash = $('flash')
+  let current = 's1'
+  function cut(id, opts = {}) {
+    if (current === id && !opts.force) return
+    current = id
+    document.querySelectorAll('.scene').forEach((s) => s.classList.remove('on'))
+    $(id).classList.add('on')
+    if (opts.flash !== false) {
+      flash.classList.remove('go'); void flash.offsetWidth; flash.classList.add('go')
+    }
+    if (opts.shake) {
+      stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake')
+    }
+  }
+  const beat = (n, fn) => setTimeout(fn, n * 500)
+
+  // s2 cards
+  const deck = $('deck')
+  const cards = [
+    ['PREF', '余额面板喜欢统一列表风', ''], ['PREF', '余额面板要统一列表风', 'dup'],
+    ['PLAN', '七月要去新加坡', ''], ['FACT', '人在新加坡', 'bad'],
+    ['PREF', '也许喜欢深色主题？', 'bad'], ['NOTE', '用户问过深色主题', 'dup'],
+    ['PREF', '中文文案要统一', ''], ['LESSON', '交付前自查位置与动效', ''],
+    ['PLAN', '七月要去新加坡', 'dup'],
+  ]
+  let total = 0
+  cards.forEach(([k, text, cls], i) => {
+    const el = document.createElement('div')
+    el.className = 'card ' + cls
+    el.style.top = (i * 43) + 'px'
+    el.innerHTML = `<span class="k">${k}</span>${text}`
+    deck.appendChild(el)
+    beat(6 + i * 0.36, () => {
+      el.classList.add('in'); el.style.top = (i * 43) + 'px'
+      total += Math.floor(Math.random() * 70) + 30
+      $('count').innerHTML = total.toLocaleString('en-US') + '<small>ENTRIES</small>'
+    })
+  })
+
+  // timeline: 0.5s per beat
+  beat(0, () => cut('s1'))
+  beat(6, () => cut('s2', { shake: true }))
+  beat(13, () => { deck.classList.add('zoom'); flash.classList.remove('go'); void flash.offsetWidth; flash.classList.add('go') })
+  beat(19, () => cut('s3a', { flash: true, shake: true }))
+  beat(22, () => cut('s3b'))
+  beat(22.4, () => $('p1').classList.add('on'))
+  beat(23.4, () => $('p2').classList.add('on'))
+  beat(24.4, () => $('p3').classList.add('on'))
+  beat(25.4, () => $('p4').classList.add('on'))
+  beat(33.2, () => cut('s4', { shake: true }))
+  beat(34.4, () => document.querySelectorAll('#after .row').forEach((r, i) => setTimeout(() => r.classList.add('pop'), i * 140)))
+  beat(38.6, () => { $('ftime').classList.add('on'); $('ftime').style.opacity = '1'; $('ftime').style.transition = 'opacity .1s' })
+  beat(45.2, () => cut('s5'))
+  beat(45.6, () => document.querySelectorAll('#s5 .rrow').forEach((r, i) => setTimeout(() => r.classList.add('pop'), i * 160)))
+  beat(52, () => $('coin').classList.add('pop'))
+  beat(55.2, () => cut('s6'))
+  beat(60, () => $('endfade').classList.add('go'))
+
+  const bar = $('bar')
+  bar.style.transition = 'width 30s linear'
+  requestAnimationFrame(() => { bar.style.width = '100%' })
+</script>
+</body>
+</html>

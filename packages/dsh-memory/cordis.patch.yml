@@ -1,0 +1,4 @@
+# Bundle layer for @local/dsh-memory.
+- insert:
+    - id: memory
+      name: '@local/dsh-memory'
