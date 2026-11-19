@@ -12,7 +12,8 @@ import { createSomnia } from './core.js'
 export const name = 'memory'
 export const inject = ['tools', 'systemPrompt']
 
-const DREAM_COOLDOWN_MS = 5 * 60 * 1000
+const DREAM_COOLDOWN_MS = 6 * 60 * 60 * 1000
+const DREAM_COOLDOWN_DEFAULT_MIN = 360
 
 async function callModel(services, system, userText, maxTokens) {
   const llm = services.llm
@@ -23,6 +24,7 @@ async function callModel(services, system, userText, maxTokens) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 90000)
   let text = ''
+  let usage = null
   try {
     const stream = llm.stream({
       provider: selection.provider,
@@ -35,11 +37,13 @@ async function callModel(services, system, userText, maxTokens) {
     })
     for await (const chunk of stream) {
       if (chunk && chunk.type === 'text-delta') text += chunk.text
+      if (chunk && chunk.usage) usage = chunk.usage
+      else if (chunk && chunk.data && chunk.data.usage) usage = chunk.data.usage
     }
   } finally {
     clearTimeout(timer)
   }
-  return text
+  return { text, usage }
 }
 
 export function apply(ctx, config) {
@@ -47,7 +51,8 @@ export function apply(ctx, config) {
     dir: path.join(os.homedir(), '.dsh', 'memory'),
     generate: async ({ system, user, maxTokens }) => {
       const services = { llm: ctx.get('llm'), defaultModel: ctx.get('agentDefaultModel') }
-      return (await callModel(services, system, user, maxTokens)) ?? ''
+      const result = await callModel(services, system, user, maxTokens)
+      return result || { text: '', usage: null }
     },
   })
 
@@ -56,6 +61,10 @@ export function apply(ctx, config) {
 
   const configuredIdle = Number(config && config.idleMinutes)
   if (Number.isFinite(configuredIdle) && configuredIdle > 0) somnia.setIdleMinutes(configuredIdle)
+  const cooldownMinutes = Number(config && config.dreamCooldownMinutes) > 0
+    ? Number(config.dreamCooldownMinutes)
+    : DREAM_COOLDOWN_DEFAULT_MIN
+  const cooldownMs = Math.max(DREAM_COOLDOWN_MS, cooldownMinutes * 60 * 1000)
 
   const timers = new Map()
   const clearTimer = (agent) => {
@@ -72,7 +81,7 @@ export function apply(ctx, config) {
     const timer = setTimeout(() => {
       timers.delete(agent.id)
       if (agent.status !== 'idle') return
-      if (Date.now() - somnia.state().lastDreamAt < DREAM_COOLDOWN_MS) return
+      if (Date.now() - somnia.state().lastDreamAt < cooldownMs) return
       void somnia.dream('idle')
     }, idleMinutes * 60 * 1000)
     timers.set(agent.id, timer)

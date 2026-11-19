@@ -27,6 +27,7 @@ const HYPOTHETICAL = /(万一|如果|假如|假设|要是|比如|例如|可能|�
 const PREFERENCE = /(偏好|喜欢|不要|别用|必须|统一|风格|习惯|用中文|用英文|prefer|always|never)/i
 const DECISION = /(决定|采用|方案|改成|修正|不对|错误|重做|换成|选|定下来)/i
 const PROJECT = /(项目|文件|路径|版本|框架|仓库|部署|测试|插件|界面|面板)/i
+const ENGINEERING = /(发布|重构|修复|提交|上线|仓库|版本|测试|commit|release|repo|repository|version|test|bug|fix|deploy|publish|ship)/i
 
 export const REWRITE_SYSTEM = [
   "You maintain a user's long-term memory as a rewritten summary, not a log.",
@@ -35,11 +36,15 @@ export const REWRITE_SYSTEM = [
   '- Keep only durable, specific, evidence-backed items; merge duplicates.',
   '- Resolve contradictions in favor of newer evidence.',
   '- Time-shift: a future plan whose date has passed becomes a past fact (e.g. "will visit Singapore in July" -> "visited Singapore in July 2026").',
+  '- Track active projects: include project-state entries under section "projects" (name, what shipped, current state).',
+  '- Prefer recent engineering decisions (repo, release, tests, fixes, versions) over cosmetic preferences.',
+  '- For each entry include "source": the ISO timestamp of the episode that supports it, when known.',
+  '- Test-only or temporary preferences must be status "background".',
   '- Demote stale or rarely relevant items to status "background"; drop what no longer matters.',
   '- Never store secrets, tokens, personal identifiers, hypotheticals, or one-off chatter.',
   '- Hypotheses: at most 3 tentative connections, clearly tentative, confidence <= 0.4.',
   'Return strict JSON and nothing else:',
-  '{"entries":[{"section":"identity|preferences|projects|plans|lessons|notes","text":"...","confidence":0.6,"status":"foreground|background"}],"hypotheses":[{"text":"...","confidence":0.3}]}',
+  '{"entries":[{"section":"identity|preferences|projects|plans|lessons|notes","text":"...","confidence":0.6,"status":"foreground|background","source":"2026-11-17T21:00:00Z"}],"hypotheses":[{"text":"...","confidence":0.3}]}',
 ].join('\n')
 
 const SECTION_OF_KIND = { preference: 'preferences', fact: 'projects', lesson: 'lessons', note: 'notes' }
@@ -118,13 +123,15 @@ export function salienceOf(text) {
   if (PREFERENCE.test(text)) score += 1
   if (DECISION.test(text)) score += 1
   if (PROJECT.test(text)) score += 0.5
+  if (ENGINEERING.test(text)) score += 1.5
   if (text.length > 80) score += 0.5
   return score
 }
 
-export function selectSalient(episodes, now = Date.now()) {
+export function selectSalient(episodes, now = Date.now(), since = 0) {
   return episodes
     .filter((entry) => now - (entry.t || 0) <= EPISODE_TTL_MS)
+    .filter((entry) => (entry.t || 0) > since)
     .map((entry) => ({ ...entry, salience: salienceOf(entry.text) }))
     .filter((entry) => entry.salience >= 1)
     .slice(-EPISODE_SALIENT_MAX)
@@ -138,14 +145,17 @@ export function applyRewrite(parsed, previous, now = Date.now()) {
     if (text.length < 2) continue
     const section = SECTIONS.includes(raw.section) ? raw.section : 'notes'
     const match = oldEntries.find((entry) => entry.section === section && (entry.text === text || similarity(entry.text, text) >= 0.75))
+    const temporary = /测试(时|用|阶段)|临时的|暂时/.test(text)
     entries.push({
       id: match ? match.id : randomUUID(),
       section,
       text: text.slice(0, 300),
       confidence: clamp(raw.confidence ?? (match ? match.confidence : 0.5)),
-      status: raw.status === 'background' ? 'background' : 'foreground',
+      status: temporary ? 'background' : (raw.status === 'background' ? 'background' : 'foreground'),
+      source: typeof raw.source === 'string' ? raw.source : (match ? match.source || null : null),
       firstSeen: match ? match.firstSeen : now,
       reviewedAt: now,
+      lastConfirmedAt: now,
       lastUsedAt: match ? match.lastUsedAt || 0 : 0,
       uses: match ? match.uses || 0 : 0,
     })
@@ -157,8 +167,10 @@ export function applyRewrite(parsed, previous, now = Date.now()) {
     text: normalizeText(raw && raw.text).slice(0, 300),
     confidence: Math.min(0.4, clamp((raw && raw.confidence) ?? 0.3)),
     status: 'background',
+    source: typeof (raw && raw.source) === 'string' ? raw.source : null,
     firstSeen: now,
     reviewedAt: now,
+    lastConfirmedAt: now,
     lastUsedAt: 0,
     uses: 0,
   })).filter((entry) => entry.text.length >= 6)
@@ -189,17 +201,28 @@ export function downscale(entries, now = Date.now()) {
   return out
 }
 
+export function estimateCostCny(usage) {
+  if (!usage) return null
+  const input = Number(usage.inputTokens ?? usage.prompt_tokens ?? 0)
+  const hit = Number(usage.cacheReadTokens ?? usage.prompt_cache_hit_tokens ?? 0)
+  const miss = Math.max(0, input - hit)
+  const output = Number(usage.outputTokens ?? usage.completion_tokens ?? 0)
+  // deepseek-flash off-peak: cache hit ¥0.02/M, miss ¥1/M, output ¥4/M.
+  return Math.round(((hit * 0.02 + miss * 1 + output * 4) / 1e6) * 10000) / 10000
+}
+
 export function selectionPrompt(memoryData, episodes, now = Date.now()) {
   return JSON.stringify({
     today: new Date(now).toISOString().slice(0, 10),
-    existing: memoryData.entries.map((entry) => ({
+    existing: memoryData.entries.slice(0, 20).map((entry) => ({
       section: entry.section,
-      text: entry.text,
+      text: entry.text.slice(0, 200),
       confidence: entry.confidence,
       status: entry.status,
+      source: entry.source || null,
       lastUsedAt: entry.lastUsedAt || 0,
     })),
-    episodes: episodes.map((entry) => ({ t: new Date(entry.t).toISOString(), text: entry.text })),
+    episodes: episodes.slice(-12).map((entry) => ({ t: new Date(entry.t).toISOString(), text: entry.text.slice(0, 200) })),
   })
 }
 
@@ -390,22 +413,30 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
     writeJournal({ phase: 'replay', reason, startedAt })
     try {
       const allEpisodes = trimEpisodes()
-      const salient = selectSalient(allEpisodes, startedAt)
+      const since = reason === 'wash' ? 0 : state.lastDreamAt
+      const salient = selectSalient(allEpisodes, startedAt, since)
       const before = loadMemory()
       let next = before.entries
       let engine = 'maintenance'
       let hypotheses = []
       const shouldRewrite = salient.length > 0 || reason === 'wash'
 
+      let usage = null
       if (shouldRewrite && typeof generate === 'function') {
         writeJournal({ phase: 'rewrite', reason, startedAt, episodes: salient.length })
         let text = null
         try {
-          text = await generate({
+          const generated = await generate({
             system: REWRITE_SYSTEM,
             user: selectionPrompt(before, salient, startedAt),
-            maxTokens: 2200,
+            maxTokens: 1200,
           })
+          if (typeof generated === 'string') {
+            text = generated
+          } else if (generated && typeof generated === 'object') {
+            text = typeof generated.text === 'string' ? generated.text : null
+            usage = generated.usage || null
+          }
         } catch (error) {
           text = null
         }
@@ -438,6 +469,7 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
 
       writeJournal({ phase: 'downscale', reason, startedAt, engine })
       const finalEntries = downscale(next, startedAt)
+      const costCny = estimateCostCny(usage)
       if (engine === 'model' || engine === 'fallback') snapshotMemory()
       memory.entries = finalEntries
       persistMemory()
@@ -449,9 +481,12 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
         `- Reason: ${reason}`,
         `- Engine: ${engine}`,
         `- Episodes in buffer: ${allEpisodes.length}`,
+        `- New episodes since last dream: ${since === 0 ? 'all' : new Date(since).toISOString()}`,
         `- Salient episodes: ${salient.length}`,
         `- Entries: ${before.entries.length} -> ${finalEntries.length}`,
         `- Hypotheses: ${hypotheses.length}`,
+        `- Tokens: ${usage ? `${usage.inputTokens ?? usage.prompt_tokens ?? '?'} in / ${usage.outputTokens ?? usage.completion_tokens ?? '?'} out` : 'n/a'}`,
+        `- Cost estimate (CNY, flash off-peak): ${costCny === null ? 'n/a' : costCny}`,
         '',
         '## Kept',
         ...(finalEntries.filter((entry) => entry.status === 'foreground').length === 0
@@ -459,15 +494,15 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
           : finalEntries.filter((entry) => entry.status === 'foreground').map((entry) => `- [${entry.section}] ${entry.text}`)),
         '',
         '## Background',
-        ...(finalEntries.filter((entry) => entry.status === 'background').length === 0
+        ...(finalEntries.filter((entry) => entry.status === 'background' && entry.section !== 'hypotheses').length === 0
           ? ['- none']
-          : finalEntries.filter((entry) => entry.status === 'background').map((entry) => `- [${entry.section}] ${entry.text}`)),
+          : finalEntries.filter((entry) => entry.status === 'background' && entry.section !== 'hypotheses').map((entry) => `- [${entry.section}] ${entry.text}`)),
         '',
         '## Hypotheses',
         ...(hypotheses.length === 0 ? ['- none'] : hypotheses.map((entry) => `- ${entry.text}`)),
       ])
-      writeJournal({ phase: 'done', reason, startedAt, finishedAt: now(), engine, episodes: salient.length, entries: finalEntries.length, hypotheses: hypotheses.length })
-      return { engine, entries: finalEntries.length, hypotheses: hypotheses.length, episodes: salient.length }
+      writeJournal({ phase: 'done', reason, startedAt, finishedAt: now(), engine, episodes: salient.length, entries: finalEntries.length, hypotheses: hypotheses.length, usage, costCny })
+      return { engine, entries: finalEntries.length, hypotheses: hypotheses.length, episodes: salient.length, usage, costCny }
     } catch (error) {
       writeJournal({ phase: 'failed', reason, startedAt, error: String(error) })
       return { error: String(error) }
