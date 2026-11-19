@@ -4,15 +4,13 @@
 
 ![Somnia — 36 秒概念片](demo/sleep-memory-demo.gif)
 
-[36 秒 · 中文](https://github.com/Cliping2077/somnia/releases/download/v1.0.0/sleep-memory-demo.mp4) · [English](https://github.com/Cliping2077/somnia/releases/download/v1.0.0/sleep-memory-demo-en.mp4) · [全部发布](https://github.com/Cliping2077/somnia/releases)
+[版本发布](https://github.com/Cliping2077/somnia/releases)
 
 一个开源的「睡眠阶段记忆」实现：短期情节缓冲 + 后台**做梦**重写长期记忆 + 主动遗忘 + 可回滚快照。以 [DeepSeek Harness](https://github.com/deepseek-ai)（DSH）插件形式落地，核心思路与框架无关，可以移植到其他 Agent。
 
 **Sleep · Memory · Consolidation · Recall.**
 
-```bash
-node scripts/install-dsh.mjs
-```
+在 DeepSeek Harness 的「插件」页面中，将本仓库的 `packages/dsh-memory` 目录安装为本地插件包。
 
 ## 为什么不是继续追加？
 
@@ -25,7 +23,7 @@ OpenAI 的 **Dreaming**（ChatGPT，2025–2026）给出了另一条路：后台
 ## 一次打盹做什么
 
 1. **Replay**：读情节缓冲，按显著性打分（显式要求、重复行为、纠正、决定）。
-2. **Rewrite**：一次模型调用重写**整份**记忆摘要——合并重复、用新证据解决矛盾、把过期计划改成过去事实、降级过时项、丢掉噪音。
+2. **巩固**：模型提出逐条更新，程序核验情节来源，合并重复，并用有依据的新信息处理冲突。
 3. **Downscale**：长期不用且低置信的条目降到 `background`，更老的直接删除。
 4. **Glymph**：清过期 episodes、旋转快照、写当日报告。
 
@@ -33,15 +31,11 @@ OpenAI 的 **Dreaming**（ChatGPT，2025–2026）给出了另一条路：后台
 
 ## 快速开始（DSH）
 
-```bash
-dsh plugin add ./packages/dsh-memory
-```
-
-然后在 DSH 插件管理里启用 **sleep-memory**。数据在 `~/.dsh/memory/`：
+在 DSH 的「插件」页面安装 `packages/dsh-memory` 目录后，确认插件包及其 `memory` 插件已启用。若插件管理提示需要重启，请重启 DSH。数据保存在 `~/.dsh/memory/`：
 
 | 文件 | 作用 |
 | --- | --- |
-| `episodes.jsonl` | 近期原始经历（7 天 TTL，上限 2000 条） |
+| `episodes.jsonl` | 脱敏后的近期情节（回放窗口 30 天，巩固时上限 5,000 条） |
 | `memory.json` | 被重写、注入会话的摘要 |
 | `snapshots/` | 每次重写一份，可 restore |
 | `dreams/YYYY-MM-DD.md` | 人可读的梦报告 |

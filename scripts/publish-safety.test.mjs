@@ -107,7 +107,7 @@ function fixture(t) {
       : []
     return { ...result, calls }
   }
-  const check = () => spawnSync(process.execPath, [join(scriptDirectory, 'publish-safety.mjs'), base], {
+  const check = (revision = base) => spawnSync(process.execPath, [join(scriptDirectory, 'publish-safety.mjs'), revision], {
     cwd, env, encoding: 'utf8',
   })
   return { base, git, put, commit, upload, check }
@@ -119,6 +119,17 @@ const shaForBlob = (content) => createHash('sha1')
   .update('blob ' + Buffer.byteLength(content) + '\0')
   .update(content)
   .digest('hex')
+
+test('staged check rejects the index bytes even after a worktree cleanup', (t) => {
+  const { put, git, check } = fixture(t)
+  put('app.js', 'export const fixture = ' + JSON.stringify(fakePat) + '\n')
+  git('add', 'app.js')
+  put('app.js', 'export const version = 1\n')
+  const { status, stdout, stderr } = check('--staged')
+  assert.equal(status, 1)
+  assert.match(stderr, /credentials or private data/)
+  assert.ok(!(stdout + stderr).includes(fakePat))
+})
 
 test('blocks a token in ordinary committed source before uploading objects', (t) => {
   const { put, commit, upload } = fixture(t)

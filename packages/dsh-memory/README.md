@@ -1,32 +1,26 @@
 # dsh-plugin-sleep-memory
 
 Sleep-stage long-term memory for [DeepSeek Harness](https://github.com/deepseek-ai):
-a 7-day episodic buffer, a background nap that **rewrites** the memory summary,
+a 30-day episodic replay window, a background nap that consolidates memories,
 active forgetting, snapshots, and a sleep indicator in the conversation tail.
 
 ## Install
 
-```bash
-dsh plugin add ./packages/dsh-memory
-```
+In the DeepSeek Harness **Plugins** page, install a local bundle by selecting
+this package directory. Check that the bundle and its `memory` plugin are
+enabled. Restart DSH if the Plugin Manager requests it.
 
-Then enable **sleep-memory** in the plugin manager and refresh the page once so
-the client half loads.
-
-Remove:
-
-```bash
-dsh plugin remove dsh-plugin-sleep-memory
-```
+To uninstall, remove the bundle from the same page. Memory data stays on disk.
 
 ## What it does
 
-- Captures every user message (6–600 chars, not slash commands) into
-  `~/.dsh/memory/episodes.jsonl`, capped at 2000 lines and 7 days.
+- Captures eligible user text (6–600 characters) after redaction into
+  `~/.dsh/memory/episodes.jsonl`. A nap keeps up to 5,000 episodes in the active buffer.
 - After `idleMinutes` (default 10) without a running turn, and after a
-  5-minute cooldown, runs one nap: select salient episodes → one model call
-  rewrites the whole summary → downscale → trim → snapshot + report.
-- Injects up to 8 foreground entries (~1400 chars) into the system prompt.
+  6-hour minimum cooldown, runs one nap. It selects salient episodes, applies
+  evidence-backed changes, and writes a report and recovery snapshot.
+- Adds up to 2,400 characters of memory to the system prompt, with pinned and
+  profile entries given priority.
 - A user message always outranks a nap; a nap never creates a session.
 
 ## Config
@@ -34,6 +28,7 @@ dsh plugin remove dsh-plugin-sleep-memory
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `idleMinutes` | `10` | idle minutes before a nap; `0` disables the idle nap |
+| `dreamCooldownMinutes` | `360` | minimum interval between automatic attempts; values below 360 use 360 |
 
 Runtime override: `memory { "action": "config", "idleMinutes": 10 }`.
 

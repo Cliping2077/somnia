@@ -40,6 +40,21 @@ test('a model response with only rejected operations can be retried', async (t) 
   assert.equal(store.state().lastDreamAt, 0)
 })
 
+test('a failed consolidation leaves curated entries intact', async (t) => {
+  const now = Date.UTC(2026, 10, 19)
+  const store = makeStore(t, { now: () => now, generate: async () => '' })
+  fs.writeFileSync(store.paths.memory, JSON.stringify({ entries: [{
+    id: 'fixture-old',
+    section: 'notes',
+    status: 'foreground',
+    text: 'Curated legacy fact',
+    firstSeen: now - 1500 * 86_400_000,
+  }] }))
+  store.capture('session', 'Remember the test fixture for release')
+  assert.equal((await store.dream()).engine, 'fallback')
+  assert.equal(store.memory().entries[0]?.text, 'Curated legacy fact')
+})
+
 test('foreground activity aborts an in-flight dream and preserves its input for later', async (t) => {
   let signal
   let resolveGeneration

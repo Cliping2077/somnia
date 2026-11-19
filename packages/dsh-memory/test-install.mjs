@@ -1,15 +1,30 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
+import { runInNewContext } from 'node:vm'
 
 const installer = fileURLToPath(new URL('../../scripts/install-dsh.mjs', import.meta.url))
 const packageRoot = fileURLToPath(new URL('.', import.meta.url))
 const runtimeFiles = ['index.js', 'core.js', 'consolidate.js', 'file-memory.js', 'client.js', 'cordis.patch.yml',
   'icon.svg', 'locale/en.json', 'locale/zh.json', 'package.json']
+
+test('the host bundle and browser factory resolve by the package name', () => {
+  const manifest = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8'))
+  const patch = readFileSync(join(packageRoot, manifest.dsh.bundle.patch), 'utf8')
+  const hostName = patch.match(/^\s*name:\s*'?([\w@/-]+)'?$/m)?.[1]
+  let clientId
+  const client = readFileSync(join(packageRoot, manifest.exports['./client']), 'utf8')
+  runInNewContext(client, {
+    window: { __ModuleLoader__: { load: ({ id }) => { clientId = id } } },
+  })
+  assert.equal(hostName, manifest.name)
+  assert.equal(clientId, manifest.name)
+  assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-chat'))
+})
 
 test('a fresh copied installation loads without dependencies from the checkout', (t) => {
   const directory = mkdtempSync(join(tmpdir(), 'somnia-install-'))

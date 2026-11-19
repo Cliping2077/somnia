@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Install the DSH adapter into a DSH plugin directory.
+ * Prepare a standalone directory for the DSH Plugin Manager.
  *
  *   node scripts/install-dsh.mjs [dest]
  *
- * Default dest is the local DSH workspace plugin:
+ * Default destination in the local workspace:
  *   ~/Documents/deepseek-harness/default-workspace/dsh-memory
  *
  * The plugin includes the same runtime files as the npm package.
- * Restart DSH (or reload the plugin) afterwards.
+ * Install the prepared directory as a local bundle in the DSH Plugin Manager.
  */
 import fs from 'node:fs'
 import os from 'node:os'
@@ -34,4 +34,4 @@ for (const file of files) {
   fs.copyFileSync(path.join(source, file), target)
 }
 
-console.log(`Somnia DSH adapter installed to:\n  ${dest}\nRestart DSH (or reload the plugin) to load it.`)
+console.log(`Somnia DSH bundle prepared at:\n  ${dest}\nInstall this directory as a local bundle in the DeepSeek Harness Plugin Manager.`)

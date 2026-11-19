@@ -766,7 +766,7 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
       }
 
       writeJournal({ phase: 'downscale', reason, startedAt, engine })
-      const finalEntries = downscale(next, startedAt)
+      const finalEntries = engine === 'fallback' ? before.entries : downscale(next, startedAt)
       const costCny = estimateCostCny(usage)
       if (engine === 'model' || engine === 'fallback') snapshotMemory()
       const beforeCount = memory.entries.length

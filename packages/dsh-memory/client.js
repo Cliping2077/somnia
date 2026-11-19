@@ -1,4 +1,4 @@
-// Browser half of @local/dsh-memory.
+// Browser half of dsh-plugin-sleep-memory.
 //
 // The sleep indicator is a `conversation.chat.turnTail` contribution: it lives
 // in the transcript's tail, right before the completed Turn's actions row —
@@ -10,7 +10,7 @@
 // nightcap. The official mark carries too much detail below ~40px, so this is a
 // simplified sleeping version in the same silhouette and colour language.
 window.__ModuleLoader__.load({
-  id: '@local/dsh-memory',
+  id: 'dsh-plugin-sleep-memory',
   factory(require) {
     const React = require('react')
     const h = React.createElement

@@ -4,7 +4,7 @@
 
 ![Somnia — a 36-second film](demo/sleep-memory-demo.gif)
 
-[36s film · 中文](https://github.com/Cliping2077/somnia/releases/download/v1.0.0/sleep-memory-demo.mp4) · [English](https://github.com/Cliping2077/somnia/releases/download/v1.0.0/sleep-memory-demo-en.mp4) · [All releases](https://github.com/Cliping2077/somnia/releases)
+[Releases](https://github.com/Cliping2077/somnia/releases)
 
 An open-source implementation of *sleep-stage memory* for AI agents: a short-lived
 episodic buffer, a background **dream** that rewrites long-term memory, active
@@ -14,12 +14,10 @@ framework-agnostic design that can be ported to other agents.
 
 **Sleep · Memory · Consolidation · Recall.**
 
-```bash
-node scripts/install-dsh.mjs
-```
+[Install the DeepSeek Harness bundle](docs/install-dsh.md)
 
 ```
-day  ──►  episodes.jsonl        (fast, 7-day TTL, never injected)
+day  ──►  episodes.jsonl        (fast, 30-day replay window, never injected)
              │
         nap  ▼
         replay → rewrite → downscale → glymph
@@ -49,9 +47,9 @@ downscaling, clearance, and dreams.
 
 1. **Replay** — read the episodic buffer and score each episode for salience
    (explicit memory requests, repeated behaviour, corrections, decisions).
-2. **Rewrite** — one direct model call rewrites the *whole* memory summary:
-   merge duplicates, resolve contradictions with newer evidence, time-shift
-   expired plans, demote stale items, drop noise.
+2. **Consolidate** — the model proposes individual changes. The engine verifies
+   their cited episodes, merges duplicates, and resolves conflicts using newer
+   evidence.
 3. **Downscale** — entries that are never used fade to `background`; old
    low-confidence entries are dropped.
 4. **Glymph** — trim expired episodes, rotate snapshots, write the dated report.
@@ -62,17 +60,13 @@ and the next wake consolidates it. Multiple naps per day are expected.
 
 ## Quick start (DSH)
 
-```bash
-# from this repository
-dsh plugin add ./packages/dsh-memory
-```
-
-Then enable **sleep-memory** in DSH's plugin manager. Memory lives in
-`~/.dsh/memory/`:
+In DSH's **Plugins** page, [install the local bundle](docs/install-dsh.md)
+from this repository's `packages/dsh-memory` directory. Verify that its
+`memory` plugin is enabled. Memory lives in `~/.dsh/memory/`:
 
 | File | Purpose |
 | --- | --- |
-| `episodes.jsonl` | raw recent experience (7-day TTL, capped at 2000) |
+| `episodes.jsonl` | redacted recent episodes (30-day replay window, capped at 5,000 during consolidation) |
 | `memory.json` | the rewritten summary that is injected into sessions |
 | `snapshots/` | one snapshot per rewrite, restorable |
 | `dreams/YYYY-MM-DD.md` | human-readable dream report |

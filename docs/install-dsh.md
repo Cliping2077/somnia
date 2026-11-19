@@ -1,34 +1,22 @@
 # Install the DSH adapter
 
-Somnia ships as a host-agnostic core plus a DeepSeek Harness adapter. DSH is the
-default and needs no configuration beyond copying the adapter directory.
+Somnia ships as a DeepSeek Harness bundle named `dsh-plugin-sleep-memory`.
 
-## One command
+## Install a local bundle
 
-```bash
-node scripts/install-dsh.mjs
-```
+1. In the DeepSeek Harness **Plugins** page, install a local bundle using the
+   absolute path of the checkout's `packages/dsh-memory` directory. Keep the
+   directory available because the installation links to it.
+2. Check that the bundle and its `memory` plugin are enabled. Restart DSH if
+   the Plugin Manager reports that a restart is required.
 
-Default destination:
+The equivalent Harness tool is
+`plugin_manager({ action: 'install_bundle', target: '/absolute/path/to/packages/dsh-memory' })`.
 
-```text
-~/Documents/deepseek-harness/default-workspace/dsh-memory
-```
-
-Or point it at another profile plugin directory:
-
-```bash
-node scripts/install-dsh.mjs /path/to/dsh-memory
-```
-
-The script copies the adapter package files, including the core, consolidation,
-and file-memory modules. The adapter runs with the bundled files and requires
-no npm install.
-
-## Restart
-
-Restart DSH (or reload the plugin) after copying. The sleep indicator and the
-`memory` tool appear in the session.
+To prepare a standalone bundle directory, run
+`node scripts/install-dsh.mjs /path/to/dsh-memory` and use the resulting directory
+as the Plugin Manager target. The script copies the packaged files. The Plugin
+Manager registers and activates the bundle for the current profile.
 
 ## What you get
 
@@ -39,7 +27,10 @@ Restart DSH (or reload the plugin) after copying. The sleep indicator and the
 - the `memory` tool for saving, reviewing, and restoring memories
 - the sleep row in the conversation tail
 
+The sleep row estimates idle time from the conversation status in the client.
+The `memory` tool's `state` action shows the actual consolidation state and
+configured idle interval.
+
 ## Uninstall
 
-Remove the plugin directory or restore the previous version of the plugin.
-Memory data stays in `~/.dsh/memory`.
+Remove the bundle in the DSH Plugin Manager. Memory data stays in `~/.dsh/memory`.
