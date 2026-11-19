@@ -2,15 +2,17 @@
 
 **让 AI 学会做梦。** 大多数 Agent 记忆只会追加，Somnia 会睡觉。
 
+![Somnia — 36 秒概念片](demo/sleep-memory-demo.gif)
+
+[36 秒 · 中文](https://github.com/Cliping2077/somnia/releases/download/v1.0.0/sleep-memory-demo.mp4) · [English](https://github.com/Cliping2077/somnia/releases/download/v1.0.0/sleep-memory-demo-en.mp4) · [全部发布](https://github.com/Cliping2077/somnia/releases)
+
 一个开源的「睡眠阶段记忆」实现：短期情节缓冲 + 后台**做梦**重写长期记忆 + 主动遗忘 + 可回滚快照。以 [DeepSeek Harness](https://github.com/deepseek-ai)（DSH）插件形式落地，核心思路与框架无关，可以移植到其他 Agent。
 
 **Sleep · Memory · Consolidation · Recall.**
 
-![睡眠指示器](assets/sleep-indicator.png)
-
-**36 秒概念片** — [中文](demo/sleep-memory-demo.mp4) · [English](demo/sleep-memory-demo-en.mp4) · [GIF](demo/sleep-memory-demo.gif)
-
-![概念片](demo/sleep-memory-demo.gif)
+```bash
+node scripts/install-dsh.mjs
+```
 
 ## 为什么不是继续追加？
 

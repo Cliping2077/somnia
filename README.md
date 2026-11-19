@@ -2,6 +2,10 @@
 
 **Let your AI dream.** Most agent memory is append-only. This one sleeps on it.
 
+![Somnia — a 36-second film](demo/sleep-memory-demo.gif)
+
+[36s film · 中文](https://github.com/Cliping2077/somnia/releases/download/v1.0.0/sleep-memory-demo.mp4) · [English](https://github.com/Cliping2077/somnia/releases/download/v1.0.0/sleep-memory-demo-en.mp4) · [All releases](https://github.com/Cliping2077/somnia/releases)
+
 An open-source implementation of *sleep-stage memory* for AI agents: a short-lived
 episodic buffer, a background **dream** that rewrites long-term memory, active
 forgetting, and a reviewable snapshot history. Built as a plugin for
@@ -10,11 +14,9 @@ framework-agnostic design that can be ported to other agents.
 
 **Sleep · Memory · Consolidation · Recall.**
 
-![Sleep indicator](assets/sleep-indicator.png)
-
-**36-second film** — [中文](demo/sleep-memory-demo.mp4) · [English](demo/sleep-memory-demo-en.mp4) · [GIF](demo/sleep-memory-demo.gif)
-
-![Film](demo/sleep-memory-demo.gif)
+```bash
+node scripts/install-dsh.mjs
+```
 
 ```
 day  ──►  episodes.jsonl        (fast, 7-day TTL, never injected)
