@@ -1,0 +1,15 @@
+{
+  "name": "somnia",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Sleep-stage memory for AI agents",
+  "license": "MIT",
+  "bin": {
+    "somnia": "./bin/somnia.mjs"
+  },
+  "scripts": {
+    "test": "node packages/core/test/smoke.mjs && node packages/core/test/units.mjs",
+    "review": "node bin/somnia.mjs"
+  }
+}

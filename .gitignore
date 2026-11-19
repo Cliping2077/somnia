@@ -1,0 +1,37 @@
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+dist/
+.env
+.env.*
+*.tmp
+demo/recordings/
+demo/frame-*.png
+demo/palette.png
+demo/remotion/out/
+demo/remotion/frames/
+demo/remotion/.tmp/
+demo/remotion/public/night.wav
+demo/remotion/public/science.wav
+
+# Large evaluation datasets are fetched, never committed (>100 MB per file).
+eval/locomo10.json
+eval/longmemeval_s.json
+eval/results.json
+
+# Demo captures that may contain account or token surfaces.
+demo/edge-*.png
+demo/*-token*.pngdemo/token-*.png
+demo/*token*.png
+
+# Authoring-only helpers (token creation, push automation).
+scripts/cdp-token.mjs
+scripts/push-api.mjs
+scripts/push-api.ps1
+scripts/push-incremental.ps1
+
+# Showcase media is curated: only the assets the README embeds ship; raw captures stay local.
+!/demo/
+demo/*
+!/demo/sleep-memory-demo.gif

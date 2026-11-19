@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Cross-session memory",
+    "description": "Adds a `memory` tool (save/search/list/forget) backed by a local JSON store, and injects the most useful stored facts, preferences, and lessons into every new session. Use it to remember durable project facts, user preferences, and lessons learned; the dream-cycle skill consolidates recent sessions into this store."
+  }
+}

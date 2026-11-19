@@ -1,0 +1,13 @@
+{
+  "name": "@somnia/core",
+  "version": "1.0.0",
+  "description": "Host-agnostic sleep-stage memory engine",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/somnia.js"
+  },
+  "files": [
+    "src"
+  ]
+}
