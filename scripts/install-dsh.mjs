@@ -7,7 +7,7 @@
  * Default dest is the local DSH workspace plugin:
  *   ~/Documents/deepseek-harness/default-workspace/dsh-memory
  *
- * The plugin is self-contained: index.js + core.js + client.js + patch + locale.
+ * The plugin includes the same runtime files as the npm package.
  * Restart DSH (or reload the plugin) afterwards.
  */
 import fs from 'node:fs'
@@ -19,19 +19,19 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const source = path.resolve(here, '..', 'packages', 'dsh-memory')
 const dest = path.resolve(process.argv[2] || path.join(os.homedir(), 'Documents', 'deepseek-harness', 'default-workspace', 'dsh-memory'))
 
-if (!fs.existsSync(path.join(source, 'index.js'))) {
-  console.error(`source not found: ${source}`)
-  process.exit(1)
+const manifest = JSON.parse(fs.readFileSync(path.join(source, 'package.json'), 'utf8'))
+const files = ['package.json', ...manifest.files]
+for (const file of files) {
+  if (!fs.statSync(path.join(source, file), { throwIfNoEntry: false })?.isFile()) {
+    console.error(`Cannot install Somnia. The adapter package is missing ${file}.`)
+    process.exit(1)
+  }
 }
 
-fs.mkdirSync(dest, { recursive: true })
-const files = ['index.js', 'core.js', 'client.js', 'package.json', 'cordis.patch.yml', 'README.md', 'icon.svg']
 for (const file of files) {
-  const from = path.join(source, file)
-  if (fs.existsSync(from)) fs.copyFileSync(from, path.join(dest, file))
+  const target = path.join(dest, file)
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  fs.copyFileSync(path.join(source, file), target)
 }
-const localeFrom = path.join(source, 'locale')
-const localeTo = path.join(dest, 'locale')
-if (fs.existsSync(localeFrom)) fs.cpSync(localeFrom, localeTo, { recursive: true })
 
 console.log(`Somnia DSH adapter installed to:\n  ${dest}\nRestart DSH (or reload the plugin) to load it.`)

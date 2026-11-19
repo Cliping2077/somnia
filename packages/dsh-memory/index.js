@@ -14,7 +14,7 @@ export const name = 'memory'
 export const inject = ['tools', 'systemPrompt']
 
 const DREAM_COOLDOWN_MS = 6 * 60 * 60 * 1000
-const DREAM_COOLDOWN_DEFAULT_MIN = 360
+const MAX_TIMEOUT_MS = 2_147_483_647
 
 export const RECALL_MARKER = '[long-term memory]'
 const AUTO_RECALL_K = 6
@@ -22,14 +22,15 @@ const AUTO_RECALL_MAX_CHARS = 1400
 
 export function messageText(message) {
   if (!message) return ''
-  if (typeof message.content === 'string') return message.content
+  if (typeof message.content === 'string') return message.content.trim()
   const blocks = Array.isArray(message.content) ? message.content : []
-  return blocks.filter((block) => block && block.type === 'text').map((block) => block.text).join(' ').trim()
+  return blocks.filter((block) => block?.type === 'text' && typeof block.text === 'string')
+    .map((block) => block.text).join(' ').trim()
 }
 
 /**
- * Build an injected user message carrying retrieval results for one step, or null.
- * Pure and testable; the event listener below only glues it to agent/pre-step.
+ * Build a recall preview for diagnostic and test callers. The DSH adapter
+ * exposes live recall through the memory tool and system prompt section.
  */
 export function buildRecallMessage(messages, somnia, opts = {}) {
   const k = Number(opts.k) > 0 ? Number(opts.k) : AUTO_RECALL_K
@@ -66,14 +67,17 @@ export function buildRecallMessage(messages, somnia, opts = {}) {
   }
 }
 
-async function callModel(services, system, userText, maxTokens) {
+async function callModel(services, system, userText, maxTokens, signal) {
   const llm = services.llm
   const selection = services.defaultModel && typeof services.defaultModel.currentSelection === 'function'
     ? services.defaultModel.currentSelection()
     : undefined
-  if (!llm || selection === undefined || !selection.provider || !selection.model) return null
+  if (typeof llm?.stream !== 'function' || !selection?.provider || !selection.model || signal?.aborted) return null
   const controller = new AbortController()
+  const interrupt = () => controller.abort()
+  signal?.addEventListener('abort', interrupt, { once: true })
   const timer = setTimeout(() => controller.abort(), 90000)
+  timer.unref()
   let text = ''
   let usage = null
   try {
@@ -87,12 +91,14 @@ async function callModel(services, system, userText, maxTokens) {
       signal: controller.signal,
     })
     for await (const chunk of stream) {
-      if (chunk && chunk.type === 'text-delta') text += chunk.text
+      if (controller.signal.aborted) break
+      if (chunk?.type === 'text-delta' && typeof chunk.text === 'string') text += chunk.text
       if (chunk && chunk.usage) usage = chunk.usage
       else if (chunk && chunk.data && chunk.data.usage) usage = chunk.data.usage
     }
   } finally {
     clearTimeout(timer)
+    signal?.removeEventListener('abort', interrupt)
   }
   return { text, usage }
 }
@@ -104,57 +110,84 @@ export function apply(ctx, config) {
   const somnia = createSomnia({
     dir,
     embed: (config && typeof config.embed === 'function') ? config.embed : undefined,
-    generate: async ({ system, user, maxTokens }) => {
+    generate: async ({ system, user, maxTokens, signal }) => {
       const services = { llm: ctx.get('llm'), defaultModel: ctx.get('agentDefaultModel') }
-      const result = await callModel(services, system, user, maxTokens)
+      const result = await callModel(services, system, user, maxTokens, signal)
       return result || { text: '', usage: null }
     },
   })
 
-  // Legacy test value (30 seconds) must not ship; production default is 10 minutes.
-  if (somnia.state().idleMinutes < 1) somnia.setIdleMinutes(10)
+  const configuredIdle = Number(config?.idleMinutes ?? NaN)
+  if (Number.isFinite(configuredIdle) && configuredIdle >= 0) somnia.setIdleMinutes(configuredIdle)
+  const configuredCooldown = Number(config?.dreamCooldownMinutes) * 60 * 1000
+  const cooldownMs = Number.isFinite(configuredCooldown)
+    ? Math.max(DREAM_COOLDOWN_MS, configuredCooldown)
+    : DREAM_COOLDOWN_MS
 
-  const configuredIdle = Number(config && config.idleMinutes)
-  if (Number.isFinite(configuredIdle) && configuredIdle > 0) somnia.setIdleMinutes(configuredIdle)
-  const cooldownMinutes = Number(config && config.dreamCooldownMinutes) > 0
-    ? Number(config.dreamCooldownMinutes)
-    : DREAM_COOLDOWN_DEFAULT_MIN
-  const cooldownMs = Math.max(DREAM_COOLDOWN_MS, cooldownMinutes * 60 * 1000)
+  // The adapter has one shared memory store, so it may dream only when every
+  // agent with an observed status is idle.
+  const statuses = new Map()
+  let timer = null
+  let idleSince = null
+  let dreamAttempted = false
 
-  const timers = new Map()
-  const clearTimer = (agent) => {
-    const timer = timers.get(agent.id)
-    if (timer !== undefined) {
-      clearTimeout(timer)
-      timers.delete(agent.id)
-    }
-  }
-  const scheduleDream = (agent) => {
-    clearTimer(agent)
-    const idleMinutes = somnia.state().idleMinutes
-    if (idleMinutes <= 0) return
-    const timer = setTimeout(() => {
-      timers.delete(agent.id)
-      if (agent.status !== 'idle') return
-      if (Date.now() - somnia.state().lastDreamAt < cooldownMs) return
-      void somnia.dream('idle')
-    }, idleMinutes * 60 * 1000)
-    timers.set(agent.id, timer)
+  const clearTimer = () => {
+    if (timer !== null) clearTimeout(timer)
+    timer = null
   }
 
-  ctx.on('agent/status', (payload) => {
-    if (payload.status === 'idle') {
-      somnia.setState('asleep')
-      scheduleDream(payload.agent)
-    } else {
-      somnia.setState('awake')
-      clearTimer(payload.agent)
-    }
+  const dreamDeadline = () => {
+    const { idleMinutes, lastDreamAt, lastAttemptAt, paused } = somnia.state()
+    if (idleSince === null || dreamAttempted || paused || idleMinutes <= 0) return null
+    const idleDelay = idleMinutes * 60 * 1000
+    if (!Number.isFinite(idleDelay)) return null
+    const lastRun = Math.max(lastDreamAt, lastAttemptAt)
+    return Math.max(idleSince + idleDelay, lastRun ? lastRun + cooldownMs : 0)
+  }
+
+  const scheduleDream = () => {
+    clearTimer()
+    const dueAt = dreamDeadline()
+    if (dueAt === null) return
+    timer = setTimeout(() => {
+      timer = null
+      const currentDeadline = dreamDeadline()
+      if (currentDeadline === null) return
+      if (Date.now() < currentDeadline) {
+        scheduleDream()
+        return
+      }
+      dreamAttempted = true
+      void somnia.dream('idle').catch(() => console.warn('Somnia idle consolidation failed.'))
+    }, Math.min(MAX_TIMEOUT_MS, Math.max(0, dueAt - Date.now())))
+    timer.unref()
+  }
+
+  const beginIdle = () => {
+    if (idleSince !== null || statuses.size === 0 || [...statuses.values()].some((status) => status !== 'idle')) return
+    idleSince = Date.now()
+    dreamAttempted = false
+    somnia.setState('asleep')
+    scheduleDream()
+  }
+
+  const wake = () => {
+    clearTimer()
+    idleSince = null
+    somnia.interruptDream()
+    somnia.setState('awake')
+  }
+
+  ctx.on('agent/status', ({ agent, status }) => {
+    if (agent?.id === undefined) return
+    statuses.set(agent.id, status)
+    if (status === 'idle') beginIdle()
+    else wake()
   })
-  ctx.on('agent/inbox/inserted', (payload) => {
-    if (payload.message && payload.message.source !== undefined && payload.message.source.kind === 'user') {
-      somnia.setState('awake')
-    }
+  ctx.on('agent/inbox/inserted', ({ agent, message }) => {
+    if (message?.source?.kind !== 'user') return
+    if (agent?.id !== undefined) statuses.set(agent.id, 'running')
+    wake()
   })
   // Broad capture; the nap decides what survives.
   ctx.on('session/event', (session, event) => {
@@ -162,17 +195,21 @@ export function apply(ctx, config) {
     // A user/message event carries the message as its data.
     const message = event.data
     if (message === null || typeof message !== 'object') return
-    if (message.source !== undefined && message.source.kind !== 'user') return
-    const blocks = Array.isArray(message.content) ? message.content : []
-    const text = blocks.filter((block) => block && block.type === 'text').map((block) => block.text).join(' ').trim()
+    if (message.source && message.source.kind !== 'user') return
+    const text = messageText(message)
     if (text.length < 6 || text.length > 600) return
     if (/^[/<\[]/.test(text)) return
     somnia.capture(session && session.id ? String(session.id) : '', text)
   })
-  ctx.on('agent/disposed', (payload) => clearTimer(payload.agent))
+  ctx.on('agent/disposed', ({ agent }) => {
+    if (!statuses.delete(agent?.id)) return
+    if (statuses.size === 0) wake()
+    else beginIdle()
+  })
   ctx.effect(() => () => {
-    for (const timer of timers.values()) clearTimeout(timer)
-    timers.clear()
+    clearTimer()
+    statuses.clear()
+    somnia.interruptDream()
   }, 'memory: dream timers')
 
   ctx.systemPrompt.section({
@@ -252,6 +289,7 @@ export function apply(ctx, config) {
     isConcurrencySafe: () => true,
     async execute(args) {
       const result = await somnia.action(args)
+      if (args.action === 'config' || args.action === 'pause' || args.action === 'resume') scheduleDream()
       if (args.action === 'dream' || args.action === 'wash') {
         return { ok: true, action: args.action, result: { lastDreamAt: somnia.state().lastDreamAt, ...result } }
       }

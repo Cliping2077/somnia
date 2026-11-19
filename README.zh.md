@@ -76,7 +76,14 @@ node bin/somnia.mjs report
 ```
 
 CLI 读的是同一个存储，所以不开 DSH 也能查梦报告、隐藏条目、回滚快照。
-`npm test` 跑核心冒烟测试和单测（脱敏、显著性、中文短条目、下调、BOM、模型失败回退）。
+`npm test` 离线运行核心测试、DSH 宿主模拟测试、推送防护测试和记忆流程集成测试。
+
+## 开发和发版验证
+
+使用 Node.js 22 或更高版本。在代码仓库内配置 `git config core.hooksPath .githooks`，
+可在提交时检查暂存区，在推送时检查整个待推送的提交范围。新增或变更的媒体及其他
+二进制文件需要单独做隐私审查。`node scripts/verify-release.mjs` 在本地验证两个
+软件包的实际归档。GitHub 验证流程需要手动触发，流程仅做验证。
 
 ## 为什么叫“睡眠”？
 

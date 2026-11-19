@@ -7,6 +7,10 @@ const now = Date.parse('2026-11-18T22:00:00Z')
 const episodes = [
   { id: 'e1', t: now - 86400000, text: '这个演示视频里把红色改成暗金，其它地方不用改' },
   { id: 'e2', t: now - 3600000, text: '以后所有 UI 都用暗金强调色' },
+  { id: 'e3', t: now, text: '正在把 DSH 改造成 GPT 级体验' },
+  { id: 'e4', t: now, text: '余额面板保留充值入口' },
+  { id: 'e5', t: now, text: '以后出口换 1.2.3.4' },
+  { id: 'e6', t: now, text: 'DSH 改造工作已撤销' },
 ]
 
 function base() {
@@ -97,7 +101,7 @@ check('add without scope is rejected', () => {
 check('update preserves id and firstSeen, appends history', () => {
   const before = base()
   const target = before.entries[0]
-  const ops = [{ op: 'update', id: target.id, text: '正在把 DSH 改造成 GPT 级体验', quote: '改造 DSH', episodes: ['e2'] }]
+  const ops = [{ op: 'update', id: target.id, text: '正在把 DSH 改造成 GPT 级体验', quote: '正在把 DSH 改造成 GPT 级体验', episodes: ['e3'] }]
   const { entries } = applyOps(ops, before, now, episodes)
   const updated = entries.find((entry) => entry.id === target.id)
   assert.ok(updated)
@@ -110,8 +114,8 @@ check('update preserves id and firstSeen, appends history', () => {
 check('delete invalidates, pinned delete rejected', () => {
   const before = base()
   const { entries, results: applied } = applyOps([
-    { op: 'delete', id: 'keep-1', reason: 'no longer true' },
-    { op: 'delete', id: 'pin-1', reason: 'attempt' },
+    { op: 'delete', id: 'keep-1', reason: 'no longer true', episodes: ['e6'], quote: 'DSH 改造工作已撤销' },
+    { op: 'delete', id: 'pin-1', reason: 'attempt', episodes: ['e6'], quote: 'DSH 改造工作已撤销' },
   ], before, now, episodes)
   const deleted = entries.find((entry) => entry.id === 'keep-1')
   assert.ok(deleted, 'row must remain for audit')
@@ -123,16 +127,24 @@ check('delete invalidates, pinned delete rejected', () => {
   assert.equal(applied[1].accepted, false)
 })
 
+check('unverified deletion retains the active entry', () => {
+  const { entries, results: applied } = applyOps([
+    { op: 'delete', id: 'keep-1', reason: 'no longer true' },
+  ], base(), now, episodes)
+  assert.equal(applied[0].accepted, false)
+  assert.equal(entries[0].status, 'foreground')
+})
+
 // 6. Provenance is mandatory and preserved.
 check('provenance carries episodes and quote', () => {
   const ops = [{
     op: 'add', section: 'projects', text: '余额面板保留充值入口',
     scope: { object: 'dsh-balance-hud', situation: '面板动作区' },
-    episodes: ['e2'], quote: '余额面板保留充值入口',
+    episodes: ['e4'], quote: '余额面板保留充值入口',
   }]
   const { entries } = applyOps(ops, base(), now, episodes)
   const added = entries.find((entry) => entry.text === '余额面板保留充值入口')
-  assert.deepEqual(added.source.episodes, ['e2'])
+  assert.deepEqual(added.source.episodes, ['e4'])
   assert.equal(added.source.quote, '余额面板保留充值入口')
   assert.ok(added.source.at >= episodes[0].t)
 })
@@ -152,7 +164,7 @@ check('same-subject claim supersedes the older entry', () => {
   before.entries[0].section = 'projects'
   const ops = [{
     op: 'add', section: 'projects', subject: '出口IP', text: '出口 IP 改为 1.2.3.4',
-    scope: { object: '代理出口', situation: '静态 IP 方案' }, episodes: ['e2'], quote: '以后出口换 1.2.3.4',
+    scope: { object: '代理出口', situation: '静态 IP 方案' }, episodes: ['e5'], quote: '以后出口换 1.2.3.4',
   }]
   const { entries, results: applied } = applyOps(ops, before, now, episodes)
   const old = entries.find((entry) => entry.id === 'keep-1')

@@ -92,7 +92,7 @@ const somnia = createSomnia({
   dir,
   generate: async () => {
     calls += 1
-    return ''
+    return calls === 1 ? '' : '{"ops":[{"op":"noop"}]}'
   },
 })
 assert.equal(somnia.state().idleMinutes, 7)
@@ -108,10 +108,14 @@ assert.equal(fallback.engine, 'fallback')
 assert.ok(somnia.memory().entries.some((entry) => entry.text.includes('必须保留的既有事实')))
 assert.equal(calls, 1)
 
-// no new episodes since the last dream -> no second model call
+// A failed attempt leaves episodes eligible for the next successful dream.
+assert.equal((await somnia.dream('manual')).engine, 'model')
+assert.equal(calls, 2)
+
+// No new episodes after a successful dream means there is no model call.
 const idle = await somnia.dream('manual')
 assert.equal(idle.engine, 'maintenance')
-assert.equal(calls, 1, 'a dream without new episodes must not spend tokens')
+assert.equal(calls, 2, 'a dream without new episodes must not spend tokens')
 
 // usage and cost are recorded per dream
 const costDir = fs.mkdtempSync(path.join(os.tmpdir(), 'somnia-cost-'))

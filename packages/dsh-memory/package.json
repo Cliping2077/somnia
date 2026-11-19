@@ -22,10 +22,13 @@
   "files": [
     "index.js",
     "core.js",
+    "consolidate.js",
+    "file-memory.js",
     "client.js",
     "cordis.patch.yml",
     "README.md",
-    "locale/*.json",
+    "locale/en.json",
+    "locale/zh.json",
     "icon.svg"
   ],
   "dsh": {

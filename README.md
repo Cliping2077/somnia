@@ -135,9 +135,17 @@ node bin/somnia.mjs report
 ```
 
 The CLI reads the same store as the DSH adapter, so you can audit a dream, hide an
-entry, or roll back a snapshot without opening the app. `npm test` runs the core
-smoke test and the unit tests (redaction, salience, short CJK entries, downscale,
-BOM, failed-model fallback).
+entry, or roll back a snapshot without opening the app. `npm test` runs the
+core, mock DSH host, publication safety, and end-to-end memory tests offline.
+
+## Development and release verification
+
+Use Node.js 22 or newer. Set `git config core.hooksPath .githooks` in the
+checkout to validate staged Git objects and the complete outbound commit range.
+New or changed media and other binary files require a separate privacy review.
+Run `node scripts/verify-release.mjs` to verify the two package archives locally.
+The GitHub verification workflow starts only when dispatched and does not
+publish either package.
 
 ## Why "sleep"?
 

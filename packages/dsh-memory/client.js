@@ -54,13 +54,15 @@ window.__ModuleLoader__.load({
   25%{opacity:1}
   70%{opacity:.9}
   100%{opacity:0;transform:translate(3px,-3px)}}
+@media(prefers-reduced-motion:reduce){
+  .mem_sleep .mem_whale,.mem_zzz i{animation:none}
+  .mem_shimmer_decoration{display:none}}
 `
 
     const IDLE_MS = 10 * 60 * 1000
 
-    // Only the newest completed Turn may show the row: track every mounted
-    // turn-tail's closing sequence and compare against the maximum.
-    const turnSeqs = new Map()
+    // Closing sequence numbers are local to each conversation.
+    const turnsBySession = new Map()
     const seqListeners = new Set()
     let instanceSeed = 0
     function notifySeq() {
@@ -68,18 +70,31 @@ window.__ModuleLoader__.load({
         try { listener() } catch (error) { /* keep the rest alive */ }
       }
     }
-    function trackSeq(key, seq) {
-      turnSeqs.set(key, seq)
+    function trackSeq(sessionId, key, seq) {
+      let turns = turnsBySession.get(sessionId)
+      if (!turns) {
+        turns = new Map()
+        turnsBySession.set(sessionId, turns)
+      }
+      turns.set(key, seq)
       notifySeq()
     }
-    function untrackSeq(key) {
-      turnSeqs.delete(key)
+    function untrackSeq(sessionId, key) {
+      const turns = turnsBySession.get(sessionId)
+      if (!turns?.delete(key)) return
+      if (turns.size === 0) turnsBySession.delete(sessionId)
       notifySeq()
     }
-    function latestSeq() {
-      let max = -Infinity
-      for (const seq of turnSeqs.values()) if (seq > max) max = seq
-      return max
+    function latestTurn(sessionId) {
+      let latestKey = 0
+      let latestSeq = -Infinity
+      for (const [key, seq] of turnsBySession.get(sessionId) ?? []) {
+        if (seq > latestSeq || (seq === latestSeq && key > latestKey)) {
+          latestKey = key
+          latestSeq = seq
+        }
+      }
+      return latestKey
     }
     function subscribeSeq(listener) {
       seqListeners.add(listener)
@@ -114,45 +129,42 @@ window.__ModuleLoader__.load({
       const seq = props.seq
       const keyRef = React.useRef(0)
       if (keyRef.current === 0) keyRef.current = ++instanceSeed
+      const key = keyRef.current
 
       React.useEffect(() => {
-        trackSeq(keyRef.current, seq)
-        return () => untrackSeq(keyRef.current)
-      }, [seq])
+        if (sessionId === undefined || !Number.isFinite(seq)) return undefined
+        trackSeq(sessionId, key, seq)
+        return () => untrackSeq(sessionId, key)
+      }, [sessionId, key, seq])
 
-      const isLatest = React.useSyncExternalStore(subscribeSeq, () => latestSeq() === seq)
+      const isLatest = React.useSyncExternalStore(subscribeSeq, () => latestTurn(sessionId) === key)
       const running = props.useSessionStatus((snapshot) => {
         const entry = sessionId === undefined ? undefined : snapshot.get(sessionId)
         return entry === undefined ? undefined : entry.running
       })
-      const state = React.useState(false)
-      const sleeping = state[0]
-      const setSleeping = state[1]
-      const idleAt = React.useRef(null)
-      const clockState = React.useState(Date.now())
-      const clock = clockState[0]
-      const setClock = clockState[1]
+      const [sleep, setSleep] = React.useState(null)
+      const [clock, setClock] = React.useState(0)
+      const sleeping = sleep !== null && sleep.sessionId === sessionId && sleep.seq === seq
 
       React.useEffect(() => {
-        if (!isLatest || running !== false) {
-          setSleeping(false)
-          if (running === true) idleAt.current = null
-          return undefined
-        }
-        if (idleAt.current === null) idleAt.current = Date.now()
-        const timer = window.setTimeout(() => setSleeping(true), IDLE_MS)
+        setSleep(null)
+        if (!isLatest || running !== false) return undefined
+        const timer = window.setTimeout(() => {
+          const startedAt = Date.now()
+          setSleep({ sessionId, seq, startedAt })
+          setClock(startedAt)
+        }, IDLE_MS)
         return () => window.clearTimeout(timer)
-      }, [isLatest, running])
+      }, [isLatest, running, sessionId, seq])
 
       React.useEffect(() => {
-        if (!sleeping) return undefined
-        setClock(Date.now())
+        if (!isLatest || running !== false || !sleeping) return undefined
         const interval = window.setInterval(() => setClock(Date.now()), 30000)
         return () => window.clearInterval(interval)
-      }, [sleeping])
+      }, [isLatest, running, sleeping])
 
-      if (!isLatest || !sleeping) return null
-      const elapsed = idleAt.current === null ? 0 : Math.max(0, clock - idleAt.current)
+      if (!isLatest || running !== false || !sleeping) return null
+      const elapsed = Math.max(0, clock - sleep.startedAt)
       const text = `deepseek 正在睡眠，${formatSleep(elapsed)}`
       return h(
         React.Fragment,
@@ -172,7 +184,7 @@ window.__ModuleLoader__.load({
               ),
             ),
           ),
-          h('span', { className: 'mem_zzz', key: 'z' },
+          h('span', { className: 'mem_zzz', key: 'z', 'aria-hidden': 'true' },
             h('i', null, 'z'), h('i', null, 'z'), h('i', null, 'z'),
           ),
         ),

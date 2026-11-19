@@ -12,11 +12,12 @@ const somnia = createSomnia({
     modelCalls += 1
     return {
       text: JSON.stringify({
-        entries: [
-          { section: 'projects', text: 'Somnia 使用 SQLite 作为记忆存储', confidence: 0.9 },
-          { section: 'preferences', text: '用户偏好暗金色界面', confidence: 0.9 },
+        ops: [
+          { op: 'add', section: 'projects', text: 'Somnia 使用 SQLite 作为记忆存储', confidence: 0.9,
+            quote: '我们决定用 SQLite 存记忆', scope: { object: 'Somnia', situation: '记忆存储' } },
+          { op: 'add', section: 'preferences', text: '用户偏好暗金色界面', confidence: 0.9,
+            quote: '以后所有界面都用暗金色', scope: { object: '界面', situation: '配色' } },
         ],
-        hypotheses: [],
       }),
     }
   },
@@ -25,7 +26,7 @@ const somnia = createSomnia({
 const scenarios = [
   '我们决定用 SQLite 存记忆',
   '发布 Somnia v1.0.0 到 GitHub',
-  '用户偏好暗金色界面',
+  '以后所有界面都用暗金色',
 ]
 for (const text of scenarios) somnia.capture('eval', text)
 

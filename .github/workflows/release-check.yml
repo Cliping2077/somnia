@@ -1,0 +1,48 @@
+name: Release checks
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_commit:
+        description: Verified ancestor commit SHA for the release changes
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Check release changes for sensitive material
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          SOMNIA_RELEASE_BASE: ${{ inputs.base_commit }}
+        run: |
+          if [[ ! "$SOMNIA_RELEASE_BASE" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "Supply a full commit SHA for the verified ancestor."
+            exit 1
+          fi
+          if [[ "$SOMNIA_RELEASE_BASE" == "$GITHUB_SHA" ]] ||
+             ! git merge-base --is-ancestor "$SOMNIA_RELEASE_BASE" "$GITHUB_SHA"; then
+            echo "The base must be an ancestor preceding the release commit."
+            exit 1
+          fi
+          node scripts/publish-safety.mjs "$SOMNIA_RELEASE_BASE" "$GITHUB_SHA"
+      - run: npm test
+      - run: node scripts/verify-release.mjs

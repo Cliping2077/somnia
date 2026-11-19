@@ -21,9 +21,9 @@ Or point it at another profile plugin directory:
 node scripts/install-dsh.mjs /path/to/dsh-memory
 ```
 
-The script copies `index.js`, `core.js`, `client.js`, `package.json`,
-`cordis.patch.yml`, `icon.svg`, and `locale/`. The adapter is self-contained —
-`index.js` imports `./core.js`, so no npm install is needed.
+The script copies the adapter package files, including the core, consolidation,
+and file-memory modules. The adapter runs with the bundled files and requires
+no npm install.
 
 ## Restart
 
@@ -36,10 +36,10 @@ Restart DSH (or reload the plugin) after copying. The sleep indicator and the
 - a dream after 10 idle minutes (configurable with `memory({action:'config'})`)
 - a synthesized `memory.json` injected into the system prompt
 - `dream-report.md`, `dreams/`, `snapshots/`
-- the `memory` tool with 12 actions
+- the `memory` tool for saving, reviewing, and restoring memories
 - the sleep row in the conversation tail
 
 ## Uninstall
 
-Remove the plugin directory (or restore the previous `index.js`). Memory data stays
-in `~/.dsh/memory`; delete that directory to forget everything.
+Remove the plugin directory or restore the previous version of the plugin.
+Memory data stays in `~/.dsh/memory`.

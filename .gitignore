@@ -22,12 +22,23 @@ eval/results.json
 
 # Demo captures that may contain account or token surfaces.
 demo/edge-*.png
-demo/*-token*.pngdemo/token-*.png
 demo/*token*.png
+private-assets/
+screenshots/
+recordings/
+browser-profile/
+*.har
+*.pem
+*.key
+*.p12
+episodes.jsonl
+episodes-archive.jsonl
+ops-raw.txt
+dream-journal.json
+dream-report.md
 
 # Authoring-only helpers (token creation, push automation).
 scripts/cdp-token.mjs
-scripts/push-api.mjs
 scripts/push-api.ps1
 scripts/push-incremental.ps1
 

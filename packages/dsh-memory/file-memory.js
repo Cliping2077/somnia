@@ -5,7 +5,8 @@
  * so the store is user-auditable: every entry is a file the user can open, edit or delete, and the
  * index carries one line per memory. Edits on disk are authoritative on the next load.
  */
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash, randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 
 const INDEX = 'MEMORY.md'
@@ -14,8 +15,9 @@ const FILE_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}\.md$/
 export function slugOf(entry) {
   const source = String(entry.text || entry.id || 'memory').toLowerCase()
   const ascii = source.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-  const base = ascii.length >= 3 ? ascii.slice(0, 48) : 'mem-' + String(entry.id || Date.now()).slice(0, 8)
-  return base.replace(/-+/g, '-') + '.md'
+  const base = ascii.length >= 3 ? ascii.slice(0, 44) : 'memory'
+  const id = createHash('sha256').update(String(entry.id || source)).digest('hex').slice(0, 12)
+  return base + '-' + id + '.md'
 }
 
 function scopeBlock(scope) {
@@ -63,21 +65,30 @@ export function renderIndex(entries) {
  * @returns the number of entry files written.
  */
 export function writeFileMemory(dir, entries) {
-  mkdirSync(dir, { recursive: true })
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  const write = (name, body) => {
+    const file = join(dir, name)
+    const temp = file + '.' + randomUUID() + '.tmp'
+    try {
+      writeFileSync(temp, body, { encoding: 'utf8', mode: 0o600, flag: 'wx' })
+      renameSync(temp, file)
+    } finally {
+      rmSync(temp, { force: true })
+    }
+  }
   const wanted = new Set()
   let written = 0
   for (const entry of entries) {
     if (entry.section === 'hypotheses') continue
     const name = slugOf(entry)
     wanted.add(name)
-    writeFileSync(join(dir, name), renderEntryFile(entry))
+    write(name, renderEntryFile(entry))
     written += 1
   }
-  for (const name of readdirSync(dir)) {
-    if (!FILE_PATTERN.test(name)) continue
+  for (const name of listEntryFiles(dir)) {
     if (!wanted.has(name)) rmSync(join(dir, name), { force: true })
   }
-  writeFileSync(join(dir, INDEX), renderIndex(entries))
+  write(INDEX, renderIndex(entries))
   return written
 }
 
@@ -88,7 +99,11 @@ export function readIndex(dir) {
 
 /** @returns the entry files present on disk, for auditing a write. */
 export function listEntryFiles(dir) {
-  try { return readdirSync(dir).filter((name) => FILE_PATTERN.test(name)) } catch { return [] }
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && FILE_PATTERN.test(entry.name))
+      .map((entry) => entry.name)
+  } catch { return [] }
 }
 
 /** Parse one entry file written by {@link renderEntryFile}. @returns entry fields or undefined. */

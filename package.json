@@ -9,7 +9,8 @@
     "somnia": "./bin/somnia.mjs"
   },
   "scripts": {
-    "test": "node packages/core/test/smoke.mjs && node packages/core/test/units.mjs",
+    "test": "node packages/core/test/smoke.mjs && node packages/core/test/units.mjs && node --test packages/core/test/stability.mjs packages/dsh-memory/test-adapter.mjs packages/dsh-memory/test-client.mjs packages/dsh-memory/test-install.mjs scripts/publish-safety.test.mjs && npm run test:integration",
+    "test:integration": "node eval/integration-eval.mjs && node eval/file-sync-eval.mjs && node eval/abilities-eval.mjs && node eval/memory-eval.mjs && node eval/adoption-eval.mjs",
     "review": "node bin/somnia.mjs"
   }
 }

@@ -84,21 +84,19 @@ export function migrateEntries(entries) {
   })
 }
 
-function episodeQuote(episodes, ids, quote) {
-  if (quote && text(quote).length > 0) return text(quote).slice(0, MAX_TEXT)
-  const list = Array.isArray(episodes) ? episodes : []
-  const found = list.find((episode) => ids.includes(String(episode.id)))
-  return found ? text(found.text).slice(0, MAX_TEXT) : ''
-}
-
 function sourceOf(raw, episodes, now) {
-  const ids = Array.isArray(raw.episodes) ? raw.episodes.map(String) : []
-  const list = Array.isArray(episodes) ? episodes : []
-  const first = list.find((episode) => ids.includes(String(episode.id)))
+  const ids = new Set(Array.isArray(raw.episodes) ? raw.episodes.map(String) : [])
+  const quote = text(raw.quote)
+  // Models may omit the ID while copying a real quote. A supplied ID must match the quote.
+  const matching = episodes.filter((episode) => episode.id &&
+    (ids.size === 0 || ids.has(String(episode.id))) &&
+    (quote ? text(episode.text).includes(quote) : ids.size > 0))
+  if (matching.length === 0) return undefined
+  const [first] = matching
   return {
-    episodes: ids,
-    quote: episodeQuote(list, ids, raw.quote),
-    at: first && Number(first.t) ? Number(first.t) : now,
+    episodes: matching.map((episode) => String(episode.id)),
+    quote: (quote || text(first.text)).slice(0, MAX_TEXT),
+    at: Number(first.t) || now,
   }
 }
 
@@ -114,7 +112,7 @@ export function applyOps(ops, previous, now = Date.now(), episodes = []) {
   const byId = new Map(entries.map((entry) => [entry.id, entry]))
   const results = []
 
-  for (const raw of Array.isArray(ops) ? ops : []) {
+  for (const raw of Array.isArray(ops) ? ops.slice(0, 12) : []) {
     const op = String((raw && raw.op) || '').toLowerCase()
 
     if (op === 'noop') {
@@ -130,18 +128,22 @@ export function applyOps(ops, previous, now = Date.now(), episodes = []) {
       }
       let section = SECTIONS.includes(raw.section) ? raw.section : 'notes'
       const scope = normalizeScope(raw.scope)
+      if (scope === undefined) {
+        results.push({ op: 'ADD', accepted: false, reason: 'scope.object is required' })
+        continue
+      }
       const source = sourceOf(raw, episodes, now)
-      const general = raw.general === true || GENERAL_CUE.test(source.quote) || GENERAL_CUE.test(claim)
+      if (source === undefined) {
+        results.push({ op: 'ADD', accepted: false, reason: 'unverified episode source' })
+        continue
+      }
+      const general = GENERAL_CUE.test(source.quote)
       let demoted = false
       let reason
       if (section === 'preferences' && !general) {
         section = 'notes'
         demoted = true
         reason = 'one-off decision demoted to notes; no general rule in the user words'
-      }
-      if (scope === undefined) {
-        results.push({ op: 'ADD', accepted: false, reason: 'scope.object is required' })
-        continue
       }
       if (section === 'preferences' && (scope.object.length === 0 || /未确认/.test(scope.object))) {
         results.push({ op: 'ADD', accepted: false, reason: 'preference needs a concrete scope.object' })
@@ -154,7 +156,7 @@ export function applyOps(ops, previous, now = Date.now(), episodes = []) {
         continue
       }
       const entry = {
-        id: raw.id ? String(raw.id) : cryptoId(),
+        id: cryptoId(),
         section,
         text: claim.slice(0, MAX_TEXT),
         confidence: clampNumber(raw.confidence ?? 0.6),
@@ -180,6 +182,7 @@ export function applyOps(ops, previous, now = Date.now(), episodes = []) {
       if (subject) {
         for (const other of entries) {
           if (other === entry) continue
+          if (other.pinned) continue
           if (other.section !== section) continue
           if (!other.subject || other.subject.trim().toLowerCase() !== subject) continue
           if (other.status !== 'foreground' || other.validTo !== undefined) continue
@@ -205,6 +208,11 @@ export function applyOps(ops, previous, now = Date.now(), episodes = []) {
         results.push({ op: 'UPDATE', accepted: false, reason: 'pinned entries are never rewritten by ops' })
         continue
       }
+      const source = sourceOf(raw, episodes, now)
+      if (source === undefined) {
+        results.push({ op: 'UPDATE', accepted: false, reason: 'unverified episode source' })
+        continue
+      }
       target.history.push({ at: now, op: 'UPDATE', text: target.text, scope: target.scope })
       const claim = text(raw.text)
       if (claim.length >= 2) target.text = claim.slice(0, MAX_TEXT)
@@ -213,7 +221,7 @@ export function applyOps(ops, previous, now = Date.now(), episodes = []) {
       if (typeof raw.confidence === 'number') target.confidence = clampNumber(raw.confidence)
       if (raw.status === 'background' || raw.status === 'foreground') target.status = raw.status
       if (raw.section && SECTIONS.includes(raw.section)) target.section = raw.section
-      if (raw.quote || Array.isArray(raw.episodes)) target.source = sourceOf(raw, episodes, now)
+      target.source = source
       target.reviewedAt = now
       target.lastConfirmedAt = now
       results.push({ op: 'UPDATE', accepted: true, id: target.id })
@@ -230,10 +238,15 @@ export function applyOps(ops, previous, now = Date.now(), episodes = []) {
         results.push({ op: 'DELETE', accepted: false, reason: 'pinned entries are never deleted by ops' })
         continue
       }
+      const source = sourceOf(raw, episodes, now)
+      if (source === undefined) {
+        results.push({ op: 'DELETE', accepted: false, reason: 'unverified episode source' })
+        continue
+      }
       target.validTo = now
       target.status = 'background'
       target.reviewedAt = now
-      target.history.push({ at: now, op: 'DELETE', reason: text(raw.reason).slice(0, 200) })
+      target.history.push({ at: now, op: 'DELETE', reason: text(raw.reason).slice(0, 200), source })
       results.push({ op: 'DELETE', accepted: true, id: target.id })
       continue
     }
@@ -251,12 +264,14 @@ export const OPS_SYSTEM = [
   'Allowed ops:',
   '  {"op":"add","section":"identity|preferences|projects|plans|lessons|notes","text":"...","scope":{"object":"what it applies to","situation":"when/where","excludes":"what it does not cover"},"episodes":["episode id"],"quote":"the user words that support it","confidence":0.6,"subject":"entity key"}',
   '  {"op":"update","id":"existing id","text":"...","scope":{...},"quote":"...","episodes":["..."]}',
-  '  {"op":"delete","id":"existing id","reason":"..."}',
+  '  {"op":"delete","id":"existing id","reason":"...","quote":"...","episodes":["..."]}',
   '  {"op":"noop"}',
   'Rules:',
   '- Every add needs scope.object and scope.situation. No scope, no add.',
   '- A preference (section "preferences") is allowed only when the user states a general rule in their own words ("以后都…", "always", "by default"). A decision made for one video, screen, document, or artifact goes to "notes" with that artifact as scope.object.',
   '- quote must be copied from the episode, never paraphrased. episodes must list the supporting episode ids.',
+  '- A delete needs an episode that explicitly retracts the existing entry.',
+  '- Never store credentials, personal identifiers, or confidential session data.',
   '- Never restate an unchanged entry. Use update for a changed value, delete for a retracted one, noop when the episodes add nothing.',
   '- Keep entries short, standalone, and specific. At most 12 ops.',
 ].join('\n')

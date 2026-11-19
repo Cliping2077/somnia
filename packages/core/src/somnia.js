@@ -11,7 +11,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { OPS_SYSTEM, applyOps, migrateEntries, opsPrompt, scopeLine } from './consolidate.js'
 import { listEntryFiles, readFileEntries, readIndex, writeFileMemory } from './file-memory.js'
 
@@ -75,11 +75,40 @@ export function normalizeSubject(text) {
 /** Strip secrets and personal identifiers before anything is stored. */
 export function redactSecrets(text) {
   return String(text ?? '')
-    .replace(/\b(sk-|ghp_|github_pat_|xox[baprs]-|AKIA)[A-Za-z0-9_-]{8,}/g, '$1…')
-    .replace(/\b(Bearer\s+)[A-Za-z0-9._-]{10,}/gi, '$1…')
+    .replace(/\b(?:sk-|gh[pousr]_|github_pat_|xox[baprs]-|AKIA|ASIA|AIza)[A-Za-z0-9_-]{8,}/gi, '[secret]')
+    .replace(/\b(Bearer\s+)[A-Za-z0-9._~+/-]{10,}={0,2}/gi, '$1…')
+    .replace(/-----BEGIN (?:[A-Z0-9 ]* )?PRIVATE KEY-----[\s\S]*?(?:-----END (?:[A-Z0-9 ]* )?PRIVATE KEY-----|$)/g, '[secret]')
+    .replace(/(https?:\/\/)[^/\s:@]+:[^/\s@]+@/gi, '$1[secret]@')
     .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, '[email]')
     .replace(/\b(?:\d[ -]?){13,19}\b/g, '[number]')
 }
+
+function sanitizeMemory(value) {
+  if (typeof value === 'string') return redactSecrets(value)
+  if (Array.isArray(value)) return value.map(sanitizeMemory)
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [redactSecrets(key), sanitizeMemory(child)]))
+  }
+  return value
+}
+
+function normalizeUsage(usage) {
+  if (!usage || typeof usage !== 'object') return null
+  const out = {}
+  for (const field of [
+    'inputTokens', 'outputTokens', 'cacheReadTokens',
+    'prompt_tokens', 'completion_tokens', 'prompt_cache_hit_tokens',
+  ]) {
+    if (Number.isSafeInteger(usage[field]) && usage[field] >= 0) out[field] = usage[field]
+  }
+  return Object.keys(out).length === 0 ? null : out
+}
+
+function loadEntries(entries) {
+  return migrateEntries(entries.filter((entry) => entry && typeof entry.text === 'string').map(sanitizeMemory))
+}
+
+const activeDreams = new Map()
 
 function bigramsOf(text) {
   const value = String(text).toLowerCase().replace(/\s+/g, ' ')
@@ -338,10 +367,19 @@ export function selectionPrompt(memoryData, episodes, now = Date.now()) {
 }
 
 function atomicWrite(file, text) {
-  fs.mkdirSync(path.dirname(file), { recursive: true })
-  const temp = `${file}.${process.pid}.tmp`
-  fs.writeFileSync(temp, text, 'utf8')
-  fs.renameSync(temp, file)
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
+  const temp = `${file}.${randomUUID()}.tmp`
+  try {
+    fs.writeFileSync(temp, text, { encoding: 'utf8', mode: 0o600, flag: 'wx' })
+    fs.renameSync(temp, file)
+  } finally {
+    fs.rmSync(temp, { force: true })
+  }
+}
+
+function fileVersion(file) {
+  const stat = fs.statSync(file, { bigint: true, throwIfNoEntry: false })
+  return stat ? `${stat.ino}:${stat.mtimeNs}:${stat.size}` : null
 }
 
 function readJson(file, fallback) {
@@ -356,10 +394,11 @@ function readJson(file, fallback) {
  * Create a Somnia instance.
  * @param {object} options
  * @param {string} [options.dir]
- * @param {(req:{system:string,user:string,maxTokens?:number}) => Promise<string>} options.generate
+ * @param {(req:{system:string,user:string,maxTokens?:number,signal:AbortSignal}) => Promise<string|object>} options.generate
  * @param {() => number} [options.now]
  */
 export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), generate, now = Date.now, embed } = {}) {
+  const storeKey = path.resolve(dir)
   const paths = {
     dir,
     episodes: path.join(dir, 'episodes.jsonl'),
@@ -374,18 +413,23 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
   }
 
   let memory = null
+  let loadedVersion = null
   let runtime = null
-  let dreaming = false
+  let runtimeVersion = null
 
   function loadState() {
-    if (runtime !== null) return runtime
-    const parsed = readJson(paths.state, {})
+    const version = fileVersion(paths.state)
+    if (runtime !== null && version === runtimeVersion) return runtime
+    const parsed = readJson(paths.state, {}) || {}
+    runtimeVersion = version
     runtime = {
-      state: typeof parsed.state === 'string' ? parsed.state : 'asleep',
+      state: parsed.state === 'awake' || (parsed.state === 'sleeping' && activeDreams.has(storeKey))
+        ? parsed.state : 'asleep',
       since: Number(parsed.since) || now(),
       lastDreamAt: Number(parsed.lastDreamAt) || 0,
+      lastAttemptAt: Number(parsed.lastAttemptAt) || 0,
       lastWashAt: Number(parsed.lastWashAt) || 0,
-      idleMinutes: Number(parsed.idleMinutes) > 0 ? Number(parsed.idleMinutes) : 10,
+      idleMinutes: Number.isFinite(parsed.idleMinutes) && parsed.idleMinutes >= 0 ? parsed.idleMinutes : 10,
       paused: parsed.paused === true,
     }
     return runtime
@@ -393,6 +437,7 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
 
   function persistState() {
     atomicWrite(paths.state, JSON.stringify(runtime, null, 2))
+    runtimeVersion = fileVersion(paths.state)
   }
 
   function setState(next) {
@@ -408,16 +453,18 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
   }
 
   function loadMemory() {
-    if (memory !== null) return memory
+    const version = fileVersion(paths.memory)
+    if (memory !== null && version === loadedVersion) return memory
+    loadedVersion = version
     const parsed = readJson(paths.memory, null)
     if (parsed && Array.isArray(parsed.entries)) {
       memory = {
         version: 5,
         updatedAt: Number(parsed.updatedAt) || 0,
-        entries: migrateEntries(parsed.entries.map((entry) => ({ ...entry, pinned: Boolean(entry.pinned) }))),
+        entries: loadEntries(parsed.entries),
       }
       // The file mirror is user-editable; an edit there must win over the JSON written earlier.
-      const fileEntries = readFileEntries(path.join(paths.dir, 'memory'))
+      const fileEntries = loadEntries(readFileEntries(path.join(paths.dir, 'memory')))
       if (fileEntries.length > 0) {
         const byId = new Map(memory.entries.map((entry) => [entry.id, entry]))
         for (const fileEntry of fileEntries) {
@@ -449,7 +496,7 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
     memory = emptyMemory()
     const legacy = readJson(paths.legacy, null)
     if (legacy && Array.isArray(legacy.entries)) {
-      memory.entries = legacy.entries.map((entry) => ({
+      memory.entries = loadEntries(legacy.entries.filter(Boolean).map((entry) => ({
         id: entry.id || randomUUID(),
         section: SECTION_OF_KIND[entry.kind] || 'notes',
         text: normalizeText(entry.text),
@@ -460,14 +507,16 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
         reviewedAt: now(),
         lastUsedAt: entry.lastUsedAt || 0,
         uses: entry.uses || 0,
-      }))
+      })))
     }
     return memory
   }
 
-  function persistMemory() {
+  function persistMemory({ interrupt = true } = {}) {
     memory.updatedAt = now()
     atomicWrite(paths.memory, JSON.stringify(memory, null, 2))
+    loadedVersion = fileVersion(paths.memory)
+    if (interrupt) interruptDream()
     // Claude-style mirror: MEMORY.md index plus one file per entry, so the store is auditable and
     // editable outside the plugin. The JSON stays the machine source of truth.
     try { writeFileMemory(path.join(paths.dir, 'memory'), memory.entries) } catch (error) { /* mirror is best effort */ }
@@ -477,7 +526,9 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
     try {
       fs.mkdirSync(paths.snapshots, { recursive: true })
       const stamp = new Date(now()).toISOString().replace(/[:.]/g, '-')
-      atomicWrite(path.join(paths.snapshots, `${stamp}.json`), JSON.stringify(loadMemory(), null, 2))
+      const dateFile = path.join(paths.snapshots, `${stamp}.json`)
+      const file = fs.existsSync(dateFile) ? path.join(paths.snapshots, `${stamp}-${randomUUID()}.json`) : dateFile
+      atomicWrite(file, JSON.stringify(loadMemory(), null, 2))
       const files = fs.readdirSync(paths.snapshots).filter((file) => file.endsWith('.json')).sort()
       for (const file of files.slice(0, Math.max(0, files.length - SNAPSHOT_KEEP))) {
         try { fs.unlinkSync(path.join(paths.snapshots, file)) } catch (error) { /* best effort */ }
@@ -487,17 +538,18 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
     }
   }
 
-  function capture(session, text) {
-    const clean = redactSecrets(normalizeText(text))
+  function capture(session, text, { id } = {}) {
+    const clean = normalizeText(redactSecrets(text))
     if (clean.length < 3 || clean.length > 600) return false
     try {
-      fs.mkdirSync(paths.dir, { recursive: true })
-      const record = { t: now(), session: String(session || ''), text: clean }
+      fs.mkdirSync(paths.dir, { recursive: true, mode: 0o700 })
+      const episodeId = typeof id === 'string' && /^[a-z0-9_-]{1,80}$/i.test(redactSecrets(id)) ? id : randomUUID()
+      const record = { id: episodeId, t: now(), session: redactSecrets(session), text: clean }
       if (typeof embed === 'function') {
         const vector = embed(clean)
         if (Array.isArray(vector) && vector.length > 0) record.v = vector
       }
-      fs.appendFileSync(paths.episodes, JSON.stringify(record) + '\n', 'utf8')
+      fs.appendFileSync(paths.episodes, JSON.stringify(record) + '\n', { encoding: 'utf8', mode: 0o600 })
       return true
     } catch (error) {
       return false
@@ -505,27 +557,17 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
   }
 
   function loadEpisodes() {
-    let text = ''
-    try {
-      text = fs.readFileSync(paths.episodes, 'utf8')
-    } catch (error) {
-      return []
-    }
-    const out = []
-    for (const line of text.split(/\r?\n/)) {
-      if (line.length === 0) continue
-      try {
-        const entry = JSON.parse(line)
-        if (entry && typeof entry.text === 'string' && entry.text.length > 0) out.push(entry)
-      } catch (error) { /* skip torn line */ }
-    }
-    return out
+    return readEpisodes(paths.episodes)
   }
 
   function loadArchivedEpisodes() {
+    return readEpisodes(paths.archive)
+  }
+
+  function readEpisodes(file) {
     let text = ''
     try {
-      text = fs.readFileSync(paths.archive, 'utf8')
+      text = fs.readFileSync(file, 'utf8')
     } catch (error) {
       return []
     }
@@ -534,7 +576,11 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
       if (line.length === 0) continue
       try {
         const entry = JSON.parse(line)
-        if (entry && typeof entry.text === 'string' && entry.text.length > 0) out.push(entry)
+        if (entry && typeof entry.text === 'string' && entry.text.length > 0 && Number.isFinite(entry.t)) {
+          const clean = sanitizeMemory(entry)
+          clean.id ||= createHash('sha256').update(line).digest('hex')
+          out.push(clean)
+        }
       } catch (error) { /* skip torn line */ }
     }
     return out
@@ -552,7 +598,7 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
     while (kept.length > EPISODE_MAX) archived.push(kept.shift())
     if (archived.length > 0) {
       fs.mkdirSync(paths.dir, { recursive: true })
-      fs.appendFileSync(paths.archive, archived.map((entry) => JSON.stringify(entry)).join('\n') + '\n', 'utf8')
+      fs.appendFileSync(paths.archive, archived.map((entry) => JSON.stringify(entry)).join('\n') + '\n', { encoding: 'utf8', mode: 0o600 })
     }
     atomicWrite(paths.episodes, kept.map((entry) => JSON.stringify(entry)).join('\n') + (kept.length > 0 ? '\n' : ''))
     return kept
@@ -613,6 +659,7 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
   }
 
   function setPaused(paused) {
+    if (paused) interruptDream()
     loadState().paused = paused
     persistState()
     return { paused }
@@ -622,7 +669,7 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
   function exportAll() {
     const data = loadMemory()
     fs.mkdirSync(path.join(paths.dir, 'export'), { recursive: true })
-    const body = [readIndex(path.join(paths.dir, 'memory')), '', '---', '']
+    const body = [redactSecrets(readIndex(path.join(paths.dir, 'memory'))), '', '---', '']
     for (const entry of data.entries) {
       body.push('## ' + entry.section + ' · ' + entry.id, '', entry.text, '')
       if (entry.scope) body.push('scope: ' + scopeLine(entry.scope).replace(/[()]/g, ''), '')
@@ -634,14 +681,25 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
     return { path: file, entries: data.entries.length }
   }
 
+  function interruptDream() {
+    const controller = activeDreams.get(storeKey)
+    if (controller === undefined || controller.signal.aborted) return false
+    controller.abort()
+    return true
+  }
+
   async function dream(reason = 'manual') {
-    if (dreaming) return { skipped: true }
-    dreaming = true
+    if (activeDreams.has(storeKey)) return { skipped: true }
+    let state = loadState()
+    if (state.paused || (reason === 'idle' && state.idleMinutes === 0)) return { skipped: true }
+    const controller = new AbortController()
+    const { signal } = controller
+    activeDreams.set(storeKey, controller)
     const startedAt = now()
-    const state = loadState()
-    setState('sleeping')
-    writeJournal({ phase: 'replay', reason, startedAt })
+    reason = redactSecrets(reason)
     try {
+      setState('sleeping')
+      writeJournal({ phase: 'replay', reason, startedAt })
       const allEpisodes = trimEpisodes()
       const since = reason === 'wash' ? 0 : state.lastDreamAt
       const newEpisodes = selectSalient(allEpisodes, startedAt, since)
@@ -650,6 +708,7 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
       const replayed = shouldRewrite ? sampleEvenly(oldPool, REPLAY_OLD_MAX).map((entry) => ({ ...entry, replayed: true })) : []
       const salient = newEpisodes.concat(replayed)
       const before = loadMemory()
+      const beforeVersion = loadedVersion
       let next = before.entries
       let engine = 'maintenance'
       let hypotheses = []
@@ -660,34 +719,44 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
         writeJournal({ phase: 'ops', reason, startedAt, episodes: salient.length })
         let text = null
         try {
-          const generated = await generate({
-            system: OPS_SYSTEM,
-            user: opsPrompt(before, salient, startedAt),
-            maxTokens: 8000,
-          })
+          let finishAbort
+          const interrupted = new Promise((resolve) => { finishAbort = () => resolve(null) })
+          signal.addEventListener('abort', finishAbort, { once: true })
+          let generated
+          try {
+            generated = await Promise.race([generate({
+              system: OPS_SYSTEM,
+              user: opsPrompt(before, salient, startedAt),
+              maxTokens: 8000,
+              signal,
+            }), interrupted])
+          } finally {
+            signal.removeEventListener('abort', finishAbort)
+          }
           if (typeof generated === 'string') {
             text = generated
           } else if (generated && typeof generated === 'object') {
             text = typeof generated.text === 'string' ? generated.text : null
-            usage = generated.usage || null
+            usage = normalizeUsage(generated.usage)
           }
         } catch (error) {
           text = null
         }
+        state = loadState()
+        if (signal.aborted || state.paused || state.state !== 'sleeping' || beforeVersion !== fileVersion(paths.memory)) {
+          writeJournal({ phase: 'interrupted', reason, startedAt })
+          return { interrupted: true }
+        }
         const parsed = parseRewrite(text)
         const usable = parsed !== null && Array.isArray(parsed.ops)
         if (!usable) {
-          writeJournal({ phase: 'ops-rejected', reason, raw: typeof text === 'string' ? text.slice(0, 800) : null })
-          try {
-            fs.mkdirSync(paths.dreams, { recursive: true })
-            atomicWrite(path.join(paths.dreams, 'ops-raw.txt'), typeof text === 'string' ? text.slice(0, 4000) : '(no text)')
-          } catch (error) { /* best effort */ }
+          writeJournal({ phase: 'ops-rejected', reason, receivedOutput: typeof text === 'string' })
         }
         if (usable) {
-          const applied = applyOps(parsed.ops, before, startedAt, salient)
+          const applied = applyOps(sanitizeMemory(parsed.ops), before, startedAt, salient)
           next = applied.entries
           opStats = applied.results
-          engine = 'model'
+          engine = parsed.ops.length === 0 || opStats.some((op) => op.accepted) ? 'model' : 'fallback'
         } else {
           // Ops unusable: keep the previous curated entries. No whole-store rewrite exists any more,
           // so a failed dream can only fail to add — it can never erase.
@@ -700,10 +769,14 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
       const finalEntries = downscale(next, startedAt)
       const costCny = estimateCostCny(usage)
       if (engine === 'model' || engine === 'fallback') snapshotMemory()
+      const beforeCount = memory.entries.length
       memory.entries = finalEntries
-      persistMemory()
-      state.lastDreamAt = startedAt
-      state.lastWashAt = startedAt
+      persistMemory({ interrupt: false })
+      state.lastAttemptAt = startedAt
+      if (engine !== 'fallback' && (engine === 'model' || newEpisodes.length === 0)) {
+        state.lastDreamAt = startedAt
+        if (reason === 'wash') state.lastWashAt = startedAt
+      }
       persistState()
 
       writeReport(startedAt, [
@@ -713,7 +786,7 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
         `- New episodes since last dream: ${since === 0 ? 'all' : new Date(since).toISOString()}`,
         `- Salient episodes: ${salient.length}`,
         `- Replayed older: ${replayed.length}`,
-        `- Entries: ${before.entries.length} -> ${finalEntries.length}`,
+        `- Entries: ${beforeCount} -> ${finalEntries.length}`,
         `- Hypotheses: ${hypotheses.length}`,
         `- Tokens: ${usage ? `${usage.inputTokens ?? usage.prompt_tokens ?? '?'} in / ${usage.outputTokens ?? usage.completion_tokens ?? '?'} out` : 'n/a'}`,
         `- Cost estimate (CNY, flash off-peak): ${costCny === null ? 'n/a' : costCny}`,
@@ -734,20 +807,25 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
       writeJournal({ phase: 'done', reason, startedAt, finishedAt: now(), engine, episodes: salient.length, entries: finalEntries.length, hypotheses: hypotheses.length, usage, costCny })
       return { engine, entries: finalEntries.length, hypotheses: hypotheses.length, episodes: salient.length, usage, costCny }
     } catch (error) {
-      writeJournal({ phase: 'failed', reason, startedAt, error: String(error) })
-      return { error: String(error) }
+      const message = 'Dream could not finish'
+      try { writeJournal({ phase: 'failed', reason, startedAt, error: message }) } catch { /* storage may be unavailable */ }
+      return { error: message }
     } finally {
-      dreaming = false
-      setState('asleep')
+      try {
+        if (loadState().state === 'sleeping') setState('asleep')
+      } catch { /* state can recover on restart */ }
+      finally {
+        activeDreams.delete(storeKey)
+      }
     }
   }
 
   function saveEntry(args) {
     const data = loadMemory()
-    const text = redactSecrets(normalizeText(args.text))
+    const text = normalizeText(redactSecrets(args.text))
     if (text.length === 0) throw new Error('text is required')
     const section = SECTION_OF_KIND[args.kind] || 'notes'
-    const subject = normalizeSubject(args.subject)
+    const subject = normalizeSubject(redactSecrets(args.subject))
     const at = now()
     const existing = data.entries.find((entry) => entry.section === section && entry.text === text)
     if (existing !== undefined) {
@@ -764,11 +842,12 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
       confidence: clamp(args.confidence ?? 0.6),
       status: 'foreground',
       pinned: Boolean(args.pinned),
+      history: [],
       subject,
       firstSeen: at, reviewedAt: at, lastUsedAt: 0, uses: 0,
     }
     snapshotMemory()
-    data.entries.push(entry)
+    data.entries.unshift(entry)
     if (data.entries.length > MEMORY_MAX) {
       const pinnedEntries = data.entries.filter((item) => item.pinned)
       const rest = data.entries.filter((item) => !item.pinned).slice(0, Math.max(0, MEMORY_MAX - pinnedEntries.length))
@@ -804,25 +883,26 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
   }
 
   function restoreSnapshot(name) {
-    const file = path.join(paths.snapshots, path.basename(name))
-    if (!fs.existsSync(file)) throw new Error('snapshot not found')
+    if (!/^[0-9a-z._-]+\.json$/i.test(name) || name.startsWith('.')) throw new Error('invalid snapshot name')
+    const file = path.join(paths.snapshots, name)
+    if (!fs.lstatSync(file, { throwIfNoEntry: false })?.isFile()) throw new Error('snapshot not found')
     const parsed = readJson(file, null)
     if (!parsed || !Array.isArray(parsed.entries)) throw new Error('invalid snapshot')
     snapshotMemory()
-    memory = { version: 4, updatedAt: now(), entries: parsed.entries.map((entry) => ({ ...entry, pinned: Boolean(entry.pinned) })) }
+    memory = { version: 5, updatedAt: now(), entries: loadEntries(parsed.entries) }
     persistMemory()
     return { entries: memory.entries.length }
   }
 
   function retrieve(query, limit = 8) {
-    const text = normalizeText(query)
+    const text = normalizeText(redactSecrets(query))
     if (text.length === 0) return { entries: [], episodes: [] }
     const data = loadMemory()
     const active = loadEpisodes()
     const archived = loadArchivedEpisodes()
     const episodePool = active.concat(archived)
     const bm25 = bm25Scores(text, episodePool.map((episode) => episode.text))
-    const maxBm25 = Math.max(0, ...bm25)
+    const maxBm25 = bm25.reduce((max, score) => Math.max(max, score), 0)
     const queryVec = typeof embed === 'function' ? (() => { const q = embed(text); return Array.isArray(q) ? q : null })() : null
     const scored = []
     for (const entry of data.entries) {
@@ -939,7 +1019,7 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
       case 'state':
         return {
           ...loadState(),
-          dreaming,
+          dreaming: activeDreams.has(storeKey),
           entries: loadMemory().entries.length,
           episodes: loadEpisodes().length,
         }
@@ -976,13 +1056,13 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
         if (entry.pinned) throw new Error('pinned entries cannot be edited by the tool')
         if (typeof args.text === 'string' && args.text.trim().length >= 2) {
           entry.history.push({ at: now(), op: 'EDIT', text: entry.text, scope: entry.scope })
-          entry.text = normalizeText(args.text).slice(0, 300)
+          entry.text = normalizeText(redactSecrets(args.text)).slice(0, 300)
         }
         if (args.scope !== undefined && args.scope !== null && typeof args.scope === 'object') {
-          const object = normalizeText(args.scope.object)
+          const object = normalizeText(redactSecrets(args.scope.object))
           if (object.length > 0) {
-            const situation = normalizeText(args.scope.situation)
-            const excludes = normalizeText(args.scope.excludes)
+            const situation = normalizeText(redactSecrets(args.scope.situation))
+            const excludes = normalizeText(redactSecrets(args.scope.excludes))
             entry.scope = { object, situation, ...(excludes.length > 0 ? { excludes } : {}) }
           }
         }
@@ -1006,7 +1086,7 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
 
   function setIdleMinutes(minutes) {
     const value = Number(minutes)
-    if (Number.isFinite(value) && value > 0) {
+    if (Number.isFinite(value) && value >= 0) {
       loadState().idleMinutes = value
       persistState()
     }
@@ -1017,6 +1097,7 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
     paths,
     capture,
     dream,
+    interruptDream,
     injectText,
     retrieve,
     action,
