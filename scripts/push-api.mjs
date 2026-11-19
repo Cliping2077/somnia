@@ -2,7 +2,7 @@
 /**
  * Push the repository through the GitHub Git Data API.
  *
- * Some networks reset the git smart-HTTP endpoint while api.github.com works.
+ * Some networks reset the git smart-HTTP endpoint while api.github.com works.\n * This tool refuses suspicious tracked files and never force-updates main.
  * This script builds blobs/tree/commit over HTTPS and updates refs/heads/main.
  *
  *   GITHUB_TOKEN=... GITHUB_REPO=owner/name node scripts/push-api.mjs "message"
@@ -24,6 +24,26 @@ if (!token) {
 const files = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8' })
   .split('\0')
   .filter((file) => file.length > 0 && fs.existsSync(path.join(root, file)))
+
+// Fail closed: Git tracks files even after they are added to .gitignore.
+// Do not let one forgotten screenshot, local record or credential escape.
+const approvedImages = [
+  /^assets\/sleep-indicator\.png$/,
+  /^demo\/sleep-memory-demo\.gif$/,
+  /^demo\/sleep-memory-(?:science-)?poster\.png$/,
+  /^demo\/rhythm-[0-9.]+\.png$/,
+]
+const unsafePaths = files.filter((file) => {
+  const normalized = file.replaceAll('\\', '/')
+  if (/(^|\/)(?:\.env(?:\..*)?|id_(?:rsa|ed25519)|(?:private|secrets?|screenshots?|recordings?)(?:\/|$))/i.test(normalized)) return true
+  if (/(?:token|secret|password|credential|private|screenshot)/i.test(path.basename(normalized))) return true
+  if (/\.(?:png|jpe?g|webp|gif|bmp)$/i.test(normalized) && !approvedImages.some((pattern) => pattern.test(normalized))) return true
+  return false
+})
+if (unsafePaths.length) {
+  console.error('Refusing to publish unreviewed or sensitive-looking files:\\n' + unsafePaths.join('\\n'))
+  process.exit(1)
+}
 
 async function api(endpoint, options = {}) {
   const response = await fetch(`https://api.github.com${endpoint}`, {
@@ -85,7 +105,7 @@ const commit = await api(`/repos/${repo}/git/commits`, {
 if (parent) {
   await api(`/repos/${repo}/git/refs/heads/main`, {
     method: 'PATCH',
-    body: JSON.stringify({ sha: commit.sha, force: true }),
+    body: JSON.stringify({ sha: commit.sha, force: false }),
   })
 } else {
   await api(`/repos/${repo}/git/refs`, {
