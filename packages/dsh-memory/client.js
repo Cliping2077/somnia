@@ -1,7 +1,8 @@
-﻿// Browser half of @local/dsh-memory.
+// Browser half of @local/dsh-memory.
 //
 // The sleep indicator is a `conversation.chat.turnTail` contribution: it lives
-// in the transcript's tail, right before the completed Turn's actions row 鈥?// the same seat the "娣卞害姹傜储涓? status occupies while running. It only renders
+// in the transcript's tail, right before the completed Turn's actions row —
+// the same seat the "深度求索中" status occupies while running. It only renders
 // on the latest Turn and only while the session has been idle long enough, so a
 // new task immediately hands the seat back to the thinking line.
 //
@@ -85,7 +86,7 @@ window.__ModuleLoader__.load({
       return () => seqListeners.delete(listener)
     }
 
-    // Official DeepSeek running-whale tail, the same path the "娣卞害姹傜储涓? line
+    // Official DeepSeek running-whale tail, the same path the "深度求索中" line
     // uses as its fallback icon.
     const WHALE_TAIL = 'M8.844 13.742C8.967 12.328 8.45 10.4 8.45 9.65C8.45 8.94 8.88 8.43 9.6 8.43C11.285 8.43 12.106 8.281 12.685 8.104C13.71 7.791 14.585 6.768 15.055 5.945C15.137 5.803 14.99 5.641 14.829 5.671C13.829 5.86 12.828 5.376 11.827 4.978C10.659 4.514 9.491 4.707 8.935 4.876C8.805 4.915 8.658 4.819 8.636 4.686C8.468 3.643 7.405 2.615 5.498 2.238C4.54 2.048 3.748 1.574 3.347 1.202C3.252 1.113 3.088 1.125 3.03 1.242C2.628 2.059 2.168 3.82 5.248 6.115C5.82 6.494 6.31 6.785 6.574 7.637C6.72 8.104 6.157 9.168 6.061 9.368C5.157 11.27 5.089 12.19 4.926 13.742'
 
@@ -101,11 +102,11 @@ window.__ModuleLoader__.load({
 
     function formatSleep(ms) {
       const seconds = Math.floor(ms / 1000)
-      if (seconds < 60) return '鍒氱潯鐫€'
+      if (seconds < 60) return '刚睡着'
       const minutes = Math.floor(seconds / 60)
-      if (minutes < 60) return `宸茬潯 ${minutes} 鍒嗛挓`
+      if (minutes < 60) return `已睡 ${minutes} 分钟`
       const hours = Math.floor(minutes / 60)
-      return `宸茬潯 ${hours} 灏忔椂 ${minutes % 60} 鍒嗛挓`
+      return `已睡 ${hours} 小时 ${minutes % 60} 分钟`
     }
 
     function SleepRow(props) {
@@ -152,7 +153,7 @@ window.__ModuleLoader__.load({
 
       if (!isLatest || !sleeping) return null
       const elapsed = idleAt.current === null ? 0 : Math.max(0, clock - idleAt.current)
-      const text = `deepseek 姝ｅ湪鐫＄湢锛?{formatSleep(elapsed)}`
+      const text = `deepseek 正在睡眠，${formatSleep(elapsed)}`
       return h(
         React.Fragment,
         null,
@@ -190,4 +191,3 @@ window.__ModuleLoader__.load({
     }
   },
 })
-
