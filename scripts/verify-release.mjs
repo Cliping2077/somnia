@@ -35,7 +35,7 @@ function run(command, args, options, failure) {
   return result.stdout
 }
 
-function verifyPackage(spec, workspace, license) {
+function verifyPackage(spec, workspace, license, version) {
   const destination = join(workspace, spec.directory)
   mkdirSync(destination)
   const packArgs = ['pack', '--json', '--offline', '--ignore-scripts']
@@ -56,6 +56,9 @@ function verifyPackage(spec, workspace, license) {
   if (metadata.length !== 1 || metadata[0].name !== spec.name ||
       archives.length !== 1 || !archives[0].endsWith('.tgz')) {
     throw new Error('unexpected package identity or archive count')
+  }
+  if (metadata[0].version !== version) {
+    throw new Error('package version does not match the Somnia release version')
   }
 
   const archive = join(destination, archives[0])
@@ -85,10 +88,11 @@ function verifyPackage(spec, workspace, license) {
 const workspace = mkdtempSync(join(tmpdir(), 'somnia-release-'))
 try {
   const license = readFileSync(join(repo, 'LICENSE'))
+  const { version } = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8'))
   for (const spec of packages) {
     try {
-      verifyPackage(spec, workspace, license)
-      console.log(`${spec.name}: verified archive, license and entry point`)
+      verifyPackage(spec, workspace, license, version)
+      console.log(`${spec.name}@${version}: verified archive, license and entry point`)
     } catch (error) {
       // JSON parser and subprocess diagnostics can contain package contents or filenames.
       const message = error instanceof SyntaxError ? 'invalid pack metadata'
