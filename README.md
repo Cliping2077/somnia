@@ -3,11 +3,29 @@
 Somnia is an open-source memory component for AI agents. During an idle
 period, it turns selected conversation excerpts into scoped memory updates
 with citations. A new task can interrupt the background work. Reports and
-snapshots let you inspect changes and recover an earlier memory state.
+snapshots let you inspect changes and recover an earlier memory state. Its
+DeepSeek Harness adapter is an independently maintained community plugin.
 
-[Download the latest release](https://github.com/Cliping2077/somnia/releases/latest)
-· [Install in DeepSeek Harness](docs/install-dsh.md)
-· [Sleep indicator example](examples/sleep-indicator.html)
+<img src="https://github.com/Cliping2077/somnia/releases/download/v1.0.5/somnia-sleep-demo.gif" alt="Animated DeepSeek Harness and universal Somnia sleep indicators" width="640" />
+
+*Offline demo with synthetic data. The Harness indicator is above the universal indicator.*
+
+[Download v1.0.5 source ZIP](https://github.com/Cliping2077/somnia/archive/refs/tags/v1.0.5.zip) · [Install in DeepSeek Harness](docs/install-dsh.md) · [Offline indicator example](examples/sleep-indicator.html) · [Latest release](https://github.com/Cliping2077/somnia/releases/latest) · [简体中文](README.zh.md)
+
+## What a nap does
+
+1. **Replay** — read the episodic buffer and score each episode for salience
+   (explicit memory requests, repeated behaviour, corrections, decisions).
+2. **Consolidate** — the model proposes individual changes. The engine verifies
+   their cited episodes, merges duplicates, and resolves conflicts using newer
+   evidence.
+3. **Downscale** — entries that are never used fade to `background`; old
+   low-confidence entries are dropped.
+4. **Archive** — move older episodes out of the replay window, rotate snapshots,
+   and write the dated report.
+
+Consolidation runs in the background. The adapter cancels it when a new task
+starts, and pending episodes remain available for a later attempt.
 
 ## Try it in 30 seconds
 
@@ -40,31 +58,6 @@ day  ──►  episodes.jsonl        (fast, 30-day replay window, never injecte
         (slow, injected, foreground / background)
 ```
 
-## Why not just append?
-
-Append-only memory rots. Entries duplicate, contradict each other, keep stale
-plans alive, and never forget. Every conversation makes the store a little
-worse.
-
-Somnia stores the scope and source of a memory so you can see where it applies
-and what prompted it. The [design notes](docs/adoption/memory.md) document the
-related projects and published designs that informed it.
-
-## What a nap does
-
-1. **Replay** — read the episodic buffer and score each episode for salience
-   (explicit memory requests, repeated behaviour, corrections, decisions).
-2. **Consolidate** — the model proposes individual changes. The engine verifies
-   their cited episodes, merges duplicates, and resolves conflicts using newer
-   evidence.
-3. **Downscale** — entries that are never used fade to `background`; old
-   low-confidence entries are dropped.
-4. **Archive** — move older episodes out of the replay window, rotate snapshots,
-   and write the dated report.
-
-Consolidation runs in the background. The adapter cancels it when a new task
-starts, and pending episodes remain available for a later attempt.
-
 ## Quick start (DSH)
 
 In DSH's **Plugins** page, [install the local bundle](docs/install-dsh.md)
@@ -85,6 +78,16 @@ The `memory` tool includes these actions:
 memory save | search | list | hide | show | forget
 memory dream | wash | state | config | snapshots | restore
 ```
+
+## Why not just append?
+
+Append-only memory rots. Entries duplicate, contradict each other, keep stale
+plans alive, and never forget. Every conversation makes the store a little
+worse.
+
+Somnia stores the scope and source of a memory so you can see where it applies
+and what prompted it. The [design notes](docs/adoption/memory.md) document the
+related projects and published designs that informed it.
 
 ## Design principles
 
@@ -150,12 +153,6 @@ and a sleep indicator in the conversation tail. The automated suite and
 package checks have passed on Windows and Ubuntu. The GitHub workflow also
 defines a macOS job for manual verification.
 
-## License
-
-MIT. See [LICENSE](LICENSE).
-
-中文说明：[README.zh.md](README.zh.md)
-
 ## Current design and how to verify it
 
 The engine applies `ADD / UPDATE / DELETE / NOOP` operations. An added entry needs
@@ -181,3 +178,7 @@ node eval/fetch-datasets.mjs   # tells you how to fetch LoCoMo / LongMemEval-S
 The evaluation scripts measure behaviors such as retrieval, source validation
 and restoration. Long-running conversations and the effect of memory on final
 answers still need broader evaluation.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

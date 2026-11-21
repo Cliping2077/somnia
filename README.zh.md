@@ -1,8 +1,21 @@
 # Somnia
 
-Somnia 是给 AI Agent 用的开源记忆组件。它在空闲时挑选对话片段、整理带出处和适用范围的记忆。新任务可以打断后台整理，用户也可以查看报告、从快照恢复。
+Somnia 是给 AI Agent 用的开源记忆组件。它在空闲时挑选对话片段、整理带出处和适用范围的记忆。新任务可以打断后台整理，用户也可以查看报告、从快照恢复。其 DeepSeek Harness 适配器是独立维护的社区插件。
 
-[下载最新版](https://github.com/Cliping2077/somnia/releases/latest) · [安装到 DeepSeek Harness](docs/install-dsh.md) · [睡眠指示器示例](examples/sleep-indicator.html#zh)
+<img src="https://github.com/Cliping2077/somnia/releases/download/v1.0.5/somnia-sleep-demo.gif" alt="DeepSeek Harness 和通用 Somnia 睡眠指示器动画" width="640" />
+
+*用合成数据制作的离线演示。上方是 DeepSeek Harness 版，下方是通用 Somnia 版。*
+
+[下载 v1.0.5 源码 ZIP](https://github.com/Cliping2077/somnia/archive/refs/tags/v1.0.5.zip) · [安装到 DeepSeek Harness](docs/install-dsh.md) · [离线指示器示例](examples/sleep-indicator.html#zh) · [最新发布](https://github.com/Cliping2077/somnia/releases/latest) · [English](README.md)
+
+## 一次打盹做什么
+
+1. **Replay**：读情节缓冲，按显著性打分（显式要求、重复行为、纠正、决定）。
+2. **巩固**：模型提出逐条更新，程序核验情节来源，合并重复，并用有依据的新信息处理冲突。
+3. **Downscale**：长期不用且低置信的条目降到 `background`，更老的直接删除。
+4. **归档**：把较早情节移出活跃回放窗口、轮换快照、写报告。
+
+整理在后台运行。新任务可以中断整理，未处理的情节可留到下次尝试。
 
 ## 30 秒上手
 
@@ -13,21 +26,6 @@ node examples/quickstart.mjs
 ```
 
 示例会把「审稿时用深色模式」保留为前台偏好，把「这次发布演示用浅色模式」记为仅适用于该演示的后台笔记，并显示原文出处。示例使用合成对话和预设模型响应，无需 API 密钥或安装 DeepSeek Harness。
-
-## 为什么不是继续追加？
-
-追加式记忆会腐烂：重复、自相矛盾、死计划一直活着、只进不出。每聊一次，库就脏一点。
-
-Somnia 给每条整理出的记忆保留适用范围和原文证据，方便你检查它该在什么时候用。相关项目和采用的设计见[设计出处](docs/adoption/memory.md)。
-
-## 一次打盹做什么
-
-1. **Replay**：读情节缓冲，按显著性打分（显式要求、重复行为、纠正、决定）。
-2. **巩固**：模型提出逐条更新，程序核验情节来源，合并重复，并用有依据的新信息处理冲突。
-3. **Downscale**：长期不用且低置信的条目降到 `background`，更老的直接删除。
-4. **归档**：把较早情节移出活跃回放窗口、轮换快照、写报告。
-
-整理在后台运行。新任务可以中断整理，未处理的情节可留到下次尝试。
 
 ## 快速开始（DSH）
 
@@ -47,6 +45,12 @@ Somnia 给每条整理出的记忆保留适用范围和原文证据，方便你�
 memory save | search | list | hide | show | forget
 memory dream | wash | state | config | snapshots | restore
 ```
+
+## 为什么不是继续追加？
+
+追加式记忆会腐烂：重复、自相矛盾、死计划一直活着、只进不出。每聊一次，库就脏一点。
+
+Somnia 给每条整理出的记忆保留适用范围和原文证据，方便你检查它该在什么时候用。相关项目和采用的设计见[设计出处](docs/adoption/memory.md)。
 
 ## 设计原则
 
@@ -99,5 +103,3 @@ Somnia 拆成两层：**`@somnia/core`**（只依赖 Node，不依赖 DSH）和 
 ## 许可
 
 MIT。见 [LICENSE](LICENSE)。
-
-English: [README.md](README.md)
