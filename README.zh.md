@@ -2,7 +2,7 @@
 
 Somnia 是给 AI Agent 用的开源记忆组件。它在空闲时挑选对话片段、整理带出处和适用范围的记忆。新任务可以打断后台整理，用户也可以查看报告、从快照恢复。
 
-[下载最新版](https://github.com/Cliping2077/somnia/releases/latest) · [安装到 DeepSeek Harness](docs/install-dsh.md) · [睡眠指示器示例](examples/sleep-indicator.html)
+[下载最新版](https://github.com/Cliping2077/somnia/releases/latest) · [安装到 DeepSeek Harness](docs/install-dsh.md) · [睡眠指示器示例](examples/sleep-indicator.html#zh)
 
 ## 30 秒上手
 

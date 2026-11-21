@@ -5,8 +5,9 @@ import { runInNewContext } from 'node:vm'
 
 const source = readFileSync(new URL('./client.js', import.meta.url), 'utf8')
 
-function fixture() {
+function fixture({ language = 'zh-CN', browserLanguage = 'en-US' } = {}) {
   const timers = new Map()
+  const intervals = new Map()
   const status = new Map()
   let clock = 0
   let current
@@ -38,14 +39,20 @@ function fixture() {
   runInNewContext(source, {
     Date: { now: () => clock },
     window: {
+      document: { documentElement: { lang: language } },
+      navigator: { language: browserLanguage },
       setTimeout(callback, delay) {
         const id = Symbol('timeout')
         timers.set(id, { at: clock + delay, callback })
         return id
       },
       clearTimeout: (id) => timers.delete(id),
-      setInterval: () => Symbol('interval'),
-      clearInterval() {},
+      setInterval(callback, delay) {
+        const id = Symbol('interval')
+        intervals.set(id, { at: clock + delay, callback })
+        return id
+      },
+      clearInterval: (id) => intervals.delete(id),
       __ModuleLoader__: {
         load({ factory }) {
           factory(() => React).apply({
@@ -64,6 +71,9 @@ function fixture() {
       if (timer.at > clock) continue
       timers.delete(id)
       timer.callback()
+    }
+    for (const interval of intervals.values()) {
+      if (interval.at <= clock) interval.callback()
     }
   }
   const turn = (sessionId, seq) => {
@@ -130,4 +140,33 @@ test('the sleep row announces Somnia with a decorative moon', () => {
   assert.equal(sleepStatus.props['aria-live'], 'polite')
   assert.equal(moon.props.className, 'mem_moon')
   assert.equal(moon.props['aria-hidden'], 'true')
+})
+
+test('the English sleep row follows the Harness language and formats elapsed time', () => {
+  const { status, advance, turn } = fixture({ language: 'en-GB', browserLanguage: 'zh-CN' })
+  status.set('one', { running: false })
+  const row = turn('one', 1)
+  row.render()
+  row.render()
+  advance(600_000)
+
+  const text = () => row.render().children[1].children[1].children[0].children[0].children[0]
+  assert.equal(text(), 'Somnia is sleeping · Just fell asleep')
+  advance(60_000)
+  assert.equal(text(), 'Somnia is sleeping · 1 minute')
+  advance(60 * 60_000)
+  assert.equal(text(), 'Somnia is sleeping · 1 hour 1 minute')
+})
+
+test('the sleep row falls back to the browser language when the host omits it', () => {
+  const { status, advance, turn } = fixture({ language: '', browserLanguage: 'en-US' })
+  status.set('one', { running: false })
+  const row = turn('one', 1)
+  row.render()
+  row.render()
+  advance(600_000)
+
+  const [, sleepStatus] = row.render().children
+  const [, label] = sleepStatus.children
+  assert.equal(label.children[0].children[0].children[0], 'Somnia is sleeping · Just fell asleep')
 })

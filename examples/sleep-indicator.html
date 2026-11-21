@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <title>Somnia sleep indicator</title>
@@ -42,11 +42,11 @@
     <div class="mem_sleep" role="status" aria-live="polite">
       <span class="mem_moon" aria-hidden="true"></span>
       <span class="mem_shimmer">
-        <span class="mem_shimmer_content"><span class="mem_shimmer_text">Somnia 正在睡眠，已睡 10 分钟</span></span>
+        <span class="mem_shimmer_content"><span class="mem_shimmer_text">Somnia is sleeping · 10 minutes</span></span>
         <span class="mem_shimmer_decoration" aria-hidden="true" inert>
           <span class="mem_shimmer_sweep">
             <span class="mem_shimmer_content mem_shimmer_highlight">
-              <span class="mem_shimmer_text" data-shimmer-text="Somnia 正在睡眠，已睡 10 分钟"></span>
+              <span class="mem_shimmer_text" data-shimmer-text="Somnia is sleeping · 10 minutes"></span>
             </span>
           </span>
         </span>
@@ -54,5 +54,14 @@
       <span class="mem_zzz" aria-hidden="true"><i>z</i><i>z</i><i>z</i></span>
     </div>
   </div>
+  <script>
+    if (location.hash === '#zh') {
+      const label = 'Somnia 正在睡眠，已睡 10 分钟'
+      document.documentElement.lang = 'zh-CN'
+      document.title = 'Somnia 睡眠指示器'
+      document.querySelector('.mem_shimmer_content .mem_shimmer_text').textContent = label
+      document.querySelector('[data-shimmer-text]').dataset.shimmerText = label
+    }
+  </script>
 </body>
 </html>

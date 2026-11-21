@@ -100,13 +100,41 @@ window.__ModuleLoader__.load({
       return () => seqListeners.delete(listener)
     }
 
-    function formatSleep(ms) {
-      const seconds = Math.floor(ms / 1000)
-      if (seconds < 60) return '刚睡着'
-      const minutes = Math.floor(seconds / 60)
-      if (minutes < 60) return `已睡 ${minutes} 分钟`
-      const hours = Math.floor(minutes / 60)
-      return `已睡 ${hours} 小时 ${minutes % 60} 分钟`
+    function sleepLanguage() {
+      // Harness keeps the root language in sync with its active UI locale.
+      const language = window.document?.documentElement?.lang || window.navigator?.language
+      return /^zh(?:-|$)/i.test(language) ? 'zh-CN' : 'en'
+    }
+
+    const ignoreLanguageChanges = () => () => {}
+
+    function subscribeLanguage(listener) {
+      const root = window.document?.documentElement
+      if (!root || !window.MutationObserver) return () => {}
+      const observer = new window.MutationObserver(listener)
+      observer.observe(root, { attributes: true, attributeFilter: ['lang'] })
+      return () => observer.disconnect()
+    }
+
+    function englishDuration(count, unit) {
+      return `${count} ${unit}${count === 1 ? '' : 's'}`
+    }
+
+    function sleepLabel(ms, language) {
+      const totalMinutes = Math.floor(ms / 60_000)
+      const hours = Math.floor(totalMinutes / 60)
+      const minutes = totalMinutes % 60
+      if (language === 'zh-CN') {
+        if (totalMinutes === 0) return 'Somnia 正在睡眠，刚睡着'
+        if (hours === 0) return `Somnia 正在睡眠，已睡 ${minutes} 分钟`
+        return `Somnia 正在睡眠，已睡 ${hours} 小时 ${minutes} 分钟`
+      }
+
+      const prefix = 'Somnia is sleeping · '
+      if (totalMinutes === 0) return prefix + 'Just fell asleep'
+      if (hours === 0) return prefix + englishDuration(minutes, 'minute')
+      const elapsed = englishDuration(hours, 'hour')
+      return prefix + (minutes === 0 ? elapsed : `${elapsed} ${englishDuration(minutes, 'minute')}`)
     }
 
     function SleepRow(props) {
@@ -130,6 +158,10 @@ window.__ModuleLoader__.load({
       const [sleep, setSleep] = React.useState(null)
       const [clock, setClock] = React.useState(0)
       const sleeping = sleep !== null && sleep.sessionId === sessionId && sleep.seq === seq
+      const language = React.useSyncExternalStore(
+        isLatest && running === false && sleeping ? subscribeLanguage : ignoreLanguageChanges,
+        sleepLanguage,
+      )
 
       React.useEffect(() => {
         setSleep(null)
@@ -150,12 +182,12 @@ window.__ModuleLoader__.load({
 
       if (!isLatest || running !== false || !sleeping) return null
       const elapsed = Math.max(0, clock - sleep.startedAt)
-      const text = `Somnia 正在睡眠，${formatSleep(elapsed)}`
+      const text = sleepLabel(elapsed, language)
       return h(
         React.Fragment,
         null,
         h('style', { key: 'style' }, CSS),
-        h('div', { className: 'mem_sleep', role: 'status', 'aria-live': 'polite' },
+        h('div', { className: 'mem_sleep', role: 'status', 'aria-live': 'polite', lang: language },
           h('span', { className: 'mem_moon', key: 'moon', 'aria-hidden': 'true' }),
           h('span', { className: 'mem_shimmer', key: 'text' },
             h('span', { className: 'mem_shimmer_content' },
