@@ -10,53 +10,41 @@ window.__ModuleLoader__.load({
   id: 'dsh-plugin-sleep-memory',
   factory(require) {
     const React = require('react')
+    const { TextShimmer } = require('@deepseek-ai/dsh-client-ui-primitives')
     const h = React.createElement
 
     const CSS = `
-.mem_sleep{display:flex;align-items:center;gap:6px;height:28px;
+.mem_sleep{display:inline-flex;align-items:center;gap:6px;min-width:0;
+  height:calc(28px + var(--dsh-content-font-delta,0px));
+  font-family:inherit;
   font-size:calc(var(--dsh-content-font-size,14px) - 2px);
-  line-height:22px;color:var(--dsw-alias-label-deep-diving,#4C8DFF);
-  font-variant-numeric:tabular-nums;
-  --dsw-alias-label-shimmer:var(--dsw-alias-label-deep-diving-shimmer,#DCEBFF);
+  line-height:calc(22px + var(--dsh-content-font-delta,0px));
+  color:var(--dsw-alias-label-deep-diving);
+  --dsw-alias-label-shimmer:var(--dsw-alias-label-deep-diving-shimmer);
   user-select:none;white-space:nowrap}
-.mem_sleep .mem_moon{position:relative;width:14px;height:14px;flex:none;
-  animation:memFloat 3.4s ease-in-out infinite}
-.mem_moon:before{content:"";position:absolute;inset:1px 1px 3px 3px;
-  border-radius:50%;box-shadow:-2px 2px 0 1px currentColor}
-.mem_shimmer{position:relative;display:inline-grid;width:max-content;max-width:100%;
-  min-width:0;vertical-align:top;color:inherit}
-.mem_shimmer_content{display:flex;align-items:center;min-width:0}
-.mem_shimmer_text{color:inherit}
-.mem_shimmer_text[data-shimmer-text]:after{content:attr(data-shimmer-text)}
-.mem_shimmer_decoration{position:absolute;inset:0;overflow:clip;pointer-events:none;user-select:none}
-.mem_shimmer_sweep{position:absolute;inset:0;overflow:hidden;
-  color:var(--dsw-alias-label-shimmer);
-  mask-image:linear-gradient(105deg,transparent 0%,black 40% 60%,transparent 100%);
-  -webkit-mask-image:linear-gradient(105deg,transparent 0%,black 40% 60%,transparent 100%);
-  transform:translate(-100%);
-  animation:memShimmerSweep 1.5s steps(48,end) .3s infinite}
-.mem_shimmer_highlight{width:100%;height:100%;transform:translate(100%);
-  animation:memShimmerHighlight 1.5s steps(48,end) .3s infinite}
+.mem_sleep_text{min-width:0;font-variant-numeric:tabular-nums}
+.mem_sleep .mem_whale{width:calc(14px + var(--dsh-content-font-delta,0px));
+  height:calc(14px + var(--dsh-content-font-delta,0px));flex:none;overflow:visible;
+  transform-origin:35% 75%;animation:memWag 3.4s ease-in-out infinite}
 .mem_zzz{position:relative;width:20px;height:14px;flex:none;margin-left:-2px;align-self:center;overflow:visible}
 .mem_zzz i{position:absolute;left:0;font-style:italic;font-weight:600;line-height:1;
-  color:var(--dsw-alias-label-deep-diving,#4C8DFF);
   animation:memRise 2.4s ease-in-out infinite;will-change:transform,opacity}
 .mem_zzz i:nth-child(1){font-size:6px;left:0;bottom:0;animation-delay:0s}
 .mem_zzz i:nth-child(2){font-size:6px;left:5px;bottom:3px;animation-delay:.3s}
 .mem_zzz i:nth-child(3){font-size:7px;left:10px;bottom:6px;animation-delay:.6s}
-@keyframes memFloat{0%,100%{transform:rotate(0) translateY(0)}
+@keyframes memWag{0%,100%{transform:rotate(0) translateY(0)}
   50%{transform:rotate(-6deg) translateY(-1px)}}
-@keyframes memShimmerSweep{0%{transform:translate(-100%)}66.6667%,to{transform:translate(100%)}}
-@keyframes memShimmerHighlight{0%{transform:translate(100%)}66.6667%,to{transform:translate(-100%)}}
 @keyframes memRise{
   0%{opacity:0;transform:translate(0,0)}
   25%{opacity:1}
   70%{opacity:.9}
   100%{opacity:0;transform:translate(3px,-3px)}}
 @media(prefers-reduced-motion:reduce){
-  .mem_sleep .mem_moon,.mem_zzz i{animation:none}
-  .mem_shimmer_decoration{display:none}}
+  .mem_sleep .mem_whale,.mem_zzz i{animation:none}}
 `
+
+    // Tail from Harness RunningWhaleTail, as used in the original Somnia adapter.
+    const WHALE_TAIL = 'M8.844 13.742C8.967 12.328 8.45 10.4 8.45 9.65C8.45 8.94 8.88 8.43 9.6 8.43C11.285 8.43 12.106 8.281 12.685 8.104C13.71 7.791 14.585 6.768 15.055 5.945C15.137 5.803 14.99 5.641 14.829 5.671C13.829 5.86 12.828 5.376 11.827 4.978C10.659 4.514 9.491 4.707 8.935 4.876C8.805 4.915 8.658 4.819 8.636 4.686C8.468 3.643 7.405 2.615 5.498 2.238C4.54 2.048 3.748 1.574 3.347 1.202C3.252 1.113 3.088 1.125 3.03 1.242C2.628 2.059 2.168 3.82 5.248 6.115C5.82 6.494 6.31 6.785 6.574 7.637C6.72 8.104 6.157 9.168 6.061 9.368C5.157 11.27 5.089 12.19 4.926 13.742'
 
     const IDLE_MS = 10 * 60 * 1000
 
@@ -125,12 +113,12 @@ window.__ModuleLoader__.load({
       const hours = Math.floor(totalMinutes / 60)
       const minutes = totalMinutes % 60
       if (language === 'zh-CN') {
-        if (totalMinutes === 0) return 'Somnia 正在睡眠，刚睡着'
-        if (hours === 0) return `Somnia 正在睡眠，已睡 ${minutes} 分钟`
-        return `Somnia 正在睡眠，已睡 ${hours} 小时 ${minutes} 分钟`
+        if (totalMinutes === 0) return 'deepseek 正在睡眠，刚睡着'
+        if (hours === 0) return `deepseek 正在睡眠，已睡 ${minutes} 分钟`
+        return `deepseek 正在睡眠，已睡 ${hours} 小时 ${minutes} 分钟`
       }
 
-      const prefix = 'Somnia is sleeping · '
+      const prefix = 'DeepSeek is sleeping · '
       if (totalMinutes === 0) return prefix + 'Just fell asleep'
       if (hours === 0) return prefix + englishDuration(minutes, 'minute')
       const elapsed = englishDuration(hours, 'hour')
@@ -188,19 +176,9 @@ window.__ModuleLoader__.load({
         null,
         h('style', { key: 'style' }, CSS),
         h('div', { className: 'mem_sleep', role: 'status', 'aria-live': 'polite', lang: language },
-          h('span', { className: 'mem_moon', key: 'moon', 'aria-hidden': 'true' }),
-          h('span', { className: 'mem_shimmer', key: 'text' },
-            h('span', { className: 'mem_shimmer_content' },
-              h('span', { className: 'mem_shimmer_text' }, text),
-            ),
-            h('span', { className: 'mem_shimmer_decoration', 'aria-hidden': 'true', inert: '' },
-              h('span', { className: 'mem_shimmer_sweep' },
-                h('span', { className: 'mem_shimmer_content mem_shimmer_highlight' },
-                  h('span', { className: 'mem_shimmer_text', 'data-shimmer-text': text }),
-                ),
-              ),
-            ),
-          ),
+          h('svg', { className: 'mem_whale', viewBox: '0 0 16 16', 'aria-hidden': 'true' },
+            h('path', { d: WHALE_TAIL, stroke: 'currentColor', strokeWidth: 1.2, fill: 'none' })),
+          h(TextShimmer, { active: true, className: 'mem_sleep_text' }, text),
           h('span', { className: 'mem_zzz', key: 'z', 'aria-hidden': 'true' },
             h('i', null, 'z'), h('i', null, 'z'), h('i', null, 'z'),
           ),

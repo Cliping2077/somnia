@@ -2,66 +2,169 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Somnia sleep indicator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An offline preview of the DeepSeek Harness and universal Somnia sleep indicators.">
+<title>Somnia sleep indicators</title>
 <style>
-  :root{--blue:#4C8DFF;--shimmer:#DCEBFF}
-  html,body{margin:0}
-  body{min-height:320px;display:grid;place-items:center;background:#f6f7f9;font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-  .stage{display:flex;align-items:center;gap:10px;padding:28px 40px;background:#fff;border:1px solid #e8eaee;border-radius:16px;box-shadow:0 6px 24px rgba(20,30,60,.06)}
-  .mem_sleep{display:flex;align-items:center;gap:9px;height:40px;font-size:20px;line-height:30px;color:var(--blue);user-select:none;white-space:nowrap}
-  .mem_moon{position:relative;width:22px;height:22px;flex:none;animation:moonFloat 3.4s ease-in-out infinite}
-  .mem_moon:before{content:"";position:absolute;inset:2px 2px 5px 5px;
-    border-radius:50%;box-shadow:-3px 3px 0 1px currentColor}
-  .mem_shimmer{position:relative;display:inline-grid;width:max-content;max-width:100%;min-width:0;vertical-align:top;color:inherit}
-  .mem_shimmer_content{display:flex;align-items:center;min-width:0}
-  .mem_shimmer_text{color:inherit}
-  .mem_shimmer_text[data-shimmer-text]:after{content:attr(data-shimmer-text)}
-  .mem_shimmer_decoration{position:absolute;inset:0;overflow:clip;pointer-events:none;user-select:none}
-  .mem_shimmer_sweep{position:absolute;inset:0;overflow:hidden;color:var(--shimmer);
-    mask-image:linear-gradient(105deg,transparent 0%,black 40% 60%,transparent 100%);
-    -webkit-mask-image:linear-gradient(105deg,transparent 0%,black 40% 60%,transparent 100%);
-    transform:translate(-100%);animation:sweep 1.5s steps(48,end) .3s infinite}
-  .mem_shimmer_highlight{width:100%;height:100%;transform:translate(100%);animation:highlight 1.5s steps(48,end) .3s infinite}
-  .mem_zzz{position:relative;width:30px;height:20px;flex:none;margin-left:-2px;align-self:center}
-  .mem_zzz i{position:absolute;left:0;font-style:italic;font-weight:600;line-height:1;color:var(--blue);
-    animation:rise 2.4s ease-in-out infinite}
-  .mem_zzz i:nth-child(1){font-size:9px;left:0;bottom:0;animation-delay:0s}
-  .mem_zzz i:nth-child(2){font-size:9px;left:7px;bottom:4px;animation-delay:.3s}
-  .mem_zzz i:nth-child(3){font-size:10px;left:14px;bottom:8px;animation-delay:.6s}
-  @keyframes moonFloat{0%,100%{transform:rotate(0) translateY(0)}50%{transform:rotate(-6deg) translateY(-1px)}}
-  @keyframes sweep{0%{transform:translate(-100%)}66.6667%,to{transform:translate(100%)}}
-  @keyframes highlight{0%{transform:translate(100%)}66.6667%,to{transform:translate(-100%)}}
-  @keyframes rise{0%{opacity:0;transform:translate(0,0)}25%{opacity:1}70%{opacity:.9}100%{opacity:0;transform:translate(4px,-4px)}}
-  @media(prefers-reduced-motion:reduce){
-    .mem_moon,.mem_zzz i{animation:none}
-    .mem_shimmer_decoration{display:none}}
+:root {
+  --dsw-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --dsh-content-font-size: 14px;
+  --dsw-static-deepseek-500: rgb(65 118 230);
+  --dsw-static-blue-950: rgb(23 37 84);
+  --dsw-alias-label-deep-diving: color-mix(in srgb, var(--dsw-static-deepseek-500) 70%, var(--dsw-static-blue-950));
+  --dsw-alias-label-deep-diving-shimmer: color-mix(in srgb, var(--dsw-static-deepseek-500) 30%, var(--dsw-static-blue-950));
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: #293447;
+  font-family: var(--dsw-font-family);
+  -webkit-font-smoothing: antialiased;
+}
+main { width: min(860px, calc(100% - 48px)); }
+section { padding: 23px 0; }
+section + section { border-top: 1px solid #e8ebf1; }
+h2 { margin: 0 0 7px; color: #596477; font-weight: 600; font-size: 16px; line-height: 24px; }
+.sample { width: fit-content; max-width: 100%; zoom: 2; }
+.generic_moon { position: relative; }
+.generic_moon::before { content: ""; position: absolute; inset: 1px 1px 3px 3px; border-radius: 50%; box-shadow: -2px 2px 0 1px currentColor; }
+
+.mem_sleep{display:flex;align-items:center;gap:6px;height:28px;
+  font-size:calc(var(--dsh-content-font-size,14px) - 2px);
+  line-height:22px;color:var(--dsw-alias-label-deep-diving,#4C8DFF);
+  font-variant-numeric:tabular-nums;
+  --dsw-alias-label-shimmer:var(--dsw-alias-label-deep-diving-shimmer,#DCEBFF);
+  user-select:none;white-space:nowrap}
+.mem_sleep .mem_whale{width:14px;height:14px;flex:none;overflow:visible;
+  transform-origin:35% 75%;animation:memWag 3.4s ease-in-out infinite}
+.mem_shimmer{position:relative;display:inline-grid;width:max-content;max-width:100%;
+  min-width:0;vertical-align:top;color:inherit}
+.mem_shimmer_content{display:flex;align-items:center;min-width:0}
+.mem_shimmer_text{color:inherit}
+.mem_shimmer_text[data-shimmer-text]:after{content:attr(data-shimmer-text)}
+.mem_shimmer_decoration{position:absolute;inset:0;overflow:clip;pointer-events:none;user-select:none}
+.mem_shimmer_sweep{position:absolute;inset:0;overflow:hidden;
+  color:var(--dsw-alias-label-shimmer);
+  mask-image:linear-gradient(105deg,transparent 0%,black 40% 60%,transparent 100%);
+  -webkit-mask-image:linear-gradient(105deg,transparent 0%,black 40% 60%,transparent 100%);
+  transform:translate(-100%);
+  animation:memShimmerSweep 1.5s steps(48,end) .3s infinite}
+.mem_shimmer_highlight{width:100%;height:100%;transform:translate(100%);
+  animation:memShimmerHighlight 1.5s steps(48,end) .3s infinite}
+.mem_zzz{position:relative;width:20px;height:14px;flex:none;margin-left:-2px;align-self:center;overflow:visible}
+.mem_zzz i{position:absolute;left:0;font-style:italic;font-weight:600;line-height:1;
+  color:var(--dsw-alias-label-deep-diving,#4C8DFF);
+  animation:memRise 2.4s ease-in-out infinite;will-change:transform,opacity}
+.mem_zzz i:nth-child(1){font-size:6px;left:0;bottom:0;animation-delay:0s}
+.mem_zzz i:nth-child(2){font-size:6px;left:5px;bottom:3px;animation-delay:.3s}
+.mem_zzz i:nth-child(3){font-size:7px;left:10px;bottom:6px;animation-delay:.6s}
+@keyframes memWag{0%,100%{transform:rotate(0) translateY(0)}
+  50%{transform:rotate(-6deg) translateY(-1px)}}
+@keyframes memShimmerSweep{0%{transform:translate(-100%)}66.6667%,to{transform:translate(100%)}}
+@keyframes memShimmerHighlight{0%{transform:translate(100%)}66.6667%,to{transform:translate(-100%)}}
+@keyframes memRise{
+  0%{opacity:0;transform:translate(0,0)}
+  25%{opacity:1}
+  70%{opacity:.9}
+  100%{opacity:0;transform:translate(3px,-3px)}}
+@media(prefers-reduced-motion:reduce){
+  .mem_sleep .mem_whale,.mem_zzz i{animation:none}
+  .mem_shimmer_decoration{display:none}}
+@media (max-width: 540px) {
+  main { width: calc(100% - 32px); }
+  .sample { zoom: 1; }
+}
 </style>
 </head>
 <body>
-  <div class="stage">
-    <div class="mem_sleep" role="status" aria-live="polite">
-      <span class="mem_moon" aria-hidden="true"></span>
-      <span class="mem_shimmer">
-        <span class="mem_shimmer_content"><span class="mem_shimmer_text">Somnia is sleeping · 10 minutes</span></span>
-        <span class="mem_shimmer_decoration" aria-hidden="true" inert>
-          <span class="mem_shimmer_sweep">
-            <span class="mem_shimmer_content mem_shimmer_highlight">
-              <span class="mem_shimmer_text" data-shimmer-text="Somnia is sleeping · 10 minutes"></span>
+<main aria-label="Somnia sleep indicator variants">
+  <section data-variant="deepseek" aria-labelledby="deepseek-heading">
+    <h2 id="deepseek-heading">DeepSeek Harness</h2>
+    <div class="sample">
+      <div class="mem_sleep" role="status">
+        <!-- Whale-tail path copyright (c) 2026 DeepSeek. MIT attribution in docs/adoption/memory.md. -->
+        <svg class="mem_whale" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M8.844 13.742C8.967 12.328 8.45 10.4 8.45 9.65C8.45 8.94 8.88 8.43 9.6 8.43C11.285 8.43 12.106 8.281 12.685 8.104C13.71 7.791 14.585 6.768 15.055 5.945C15.137 5.803 14.99 5.641 14.829 5.671C13.829 5.86 12.828 5.376 11.827 4.978C10.659 4.514 9.491 4.707 8.935 4.876C8.805 4.915 8.658 4.819 8.636 4.686C8.468 3.643 7.405 2.615 5.498 2.238C4.54 2.048 3.748 1.574 3.347 1.202C3.252 1.113 3.088 1.125 3.03 1.242C2.628 2.059 2.168 3.82 5.248 6.115C5.82 6.494 6.31 6.785 6.574 7.637C6.72 8.104 6.157 9.168 6.061 9.368C5.157 11.27 5.089 12.19 4.926 13.742" stroke="currentColor" stroke-width="1.2" />
+        </svg>
+        <span class="mem_shimmer">
+          <span class="mem_shimmer_content">
+            <span class="mem_shimmer_text" data-visible-status>DeepSeek is sleeping · 42 minutes</span>
+          </span>
+          <span class="mem_shimmer_decoration" aria-hidden="true" inert>
+            <span class="mem_shimmer_sweep">
+              <span class="mem_shimmer_content mem_shimmer_highlight">
+                <span class="mem_shimmer_text" data-shimmer-text="DeepSeek is sleeping · 42 minutes"></span>
+              </span>
             </span>
           </span>
         </span>
-      </span>
-      <span class="mem_zzz" aria-hidden="true"><i>z</i><i>z</i><i>z</i></span>
+        <span class="mem_zzz" aria-hidden="true"><i>z</i><i>z</i><i>z</i></span>
+      </div>
     </div>
-  </div>
-  <script>
-    if (location.hash === '#zh') {
-      const label = 'Somnia 正在睡眠，已睡 10 分钟'
-      document.documentElement.lang = 'zh-CN'
-      document.title = 'Somnia 睡眠指示器'
-      document.querySelector('.mem_shimmer_content .mem_shimmer_text').textContent = label
-      document.querySelector('[data-shimmer-text]').dataset.shimmerText = label
+  </section>
+  <section data-variant="universal" aria-labelledby="universal-heading">
+    <h2 id="universal-heading">Universal</h2>
+    <div class="sample">
+      <div class="mem_sleep" role="status">
+        <span class="mem_whale generic_moon" aria-hidden="true"></span>
+        <span class="mem_shimmer">
+          <span class="mem_shimmer_content">
+            <span class="mem_shimmer_text" data-visible-status>Somnia is sleeping · 42 minutes</span>
+          </span>
+          <span class="mem_shimmer_decoration" aria-hidden="true" inert>
+            <span class="mem_shimmer_sweep">
+              <span class="mem_shimmer_content mem_shimmer_highlight">
+                <span class="mem_shimmer_text" data-shimmer-text="Somnia is sleeping · 42 minutes"></span>
+              </span>
+            </span>
+          </span>
+        </span>
+        <span class="mem_zzz" aria-hidden="true"><i>z</i><i>z</i><i>z</i></span>
+      </div>
+    </div>
+  </section>
+</main>
+<script>
+  const copy = {
+    en: {
+      lang: 'en',
+      title: 'Somnia sleep indicators',
+      description: 'An offline preview of the DeepSeek Harness and universal Somnia sleep indicators.',
+      mainLabel: 'Somnia sleep indicator variants',
+      deepseek: { heading: 'DeepSeek Harness', status: 'DeepSeek is sleeping · 42 minutes' },
+      universal: { heading: 'Universal', status: 'Somnia is sleeping · 42 minutes' },
+    },
+    zh: {
+      lang: 'zh-CN',
+      title: 'Somnia 睡眠指示器',
+      description: '离线预览 DeepSeek Harness 版和通用版的 Somnia 睡眠指示器。',
+      mainLabel: 'Somnia 睡眠指示器示例',
+      deepseek: { heading: 'DeepSeek Harness 版', status: 'deepseek 正在睡眠，已睡 42 分钟' },
+      universal: { heading: '通用版', status: 'Somnia 正在睡眠，已睡 42 分钟' },
+    },
+  }
+
+  function updateLocale() {
+    const locale = location.hash === '#zh' ? copy.zh : copy.en
+    const main = document.querySelector('main')
+    document.documentElement.lang = locale.lang
+    document.title = locale.title
+    document.querySelector('meta[name="description"]').content = locale.description
+    main.setAttribute('aria-label', locale.mainLabel)
+
+    for (const variant of main.querySelectorAll('[data-variant]')) {
+      const text = locale[variant.dataset.variant]
+      variant.querySelector('h2').textContent = text.heading
+      variant.querySelector('[data-visible-status]').textContent = text.status
+      variant.querySelector('[data-shimmer-text]').dataset.shimmerText = text.status
     }
-  </script>
+  }
+
+  updateLocale()
+  window.addEventListener('hashchange', updateLocale)
+</script>
 </body>
 </html>

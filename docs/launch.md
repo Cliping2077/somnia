@@ -51,10 +51,10 @@ Suggested post
 
 ## 展示素材
 
-用上手示例的真实输出展示偏好、笔记及来源。如果要展示插件界面，可先打开
-[独立的睡眠指示器示例](../examples/sleep-indicator.html#zh)，再使用合成对话录制
-当前插件。[英文示例](../examples/sleep-indicator.html)可直接用于英文宣传截图。
-新录制应只包含用于演示的界面和数据。
+用上手示例的真实输出展示偏好、笔记及来源。离线睡眠指示器示例上方展示 DeepSeek
+Harness 的鲸尾，下方展示通用 Somnia 的月牙。两版使用相同的字体、流光和 42 分钟的
+示例时长。可以直接截图，也可以使用合成对话录制当前插件。新录制应只包含用于演示的
+界面和数据。 [中文示例](../examples/sleep-indicator.html#zh) · [English example](../examples/sleep-indicator.html)
 
 测试覆盖和数据处理见[架构说明](architecture.md)。目前的评估主要覆盖召回、
 来源和恢复等行为。介绍产品时，可以说清这些已验证的用途，也可以邀请用户
