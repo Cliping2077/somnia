@@ -87,6 +87,8 @@ function verifyPackage(spec, workspace, license, version) {
 
 const workspace = mkdtempSync(join(tmpdir(), 'somnia-release-'))
 try {
+  run(process.execPath, [join(repo, 'scripts', 'sync-core.mjs'), '--check'],
+    { cwd: repo }, 'DSH core files are out of sync. Run npm run sync-core.')
   const license = readFileSync(join(repo, 'LICENSE'))
   const { version } = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8'))
   for (const spec of packages) {
@@ -101,6 +103,9 @@ try {
       process.exitCode = 1
     }
   }
+} catch (error) {
+  console.error(error instanceof SyntaxError ? 'invalid release metadata' : error.message)
+  process.exitCode = 1
 } finally {
   rmSync(workspace, { recursive: true, force: true })
 }

@@ -1,9 +1,9 @@
 /**
- * Claude-style file memory: a `MEMORY.md` index plus one markdown file per entry.
+ * A `MEMORY.md` index and one Markdown file per Somnia memory record.
  *
- * Ported from the documented Claude Code layout (`<memory>/MEMORY.md` index, one file per memory)
- * so the store is user-auditable: every entry is a file the user can open, edit or delete, and the
- * index carries one line per memory. Edits on disk are authoritative on the next load.
+ * The layout follows Claude Code's documented auto-memory format. Each record can be
+ * inspected, edited, or deleted on disk. Edits are authoritative on the next load.
+ * See docs/adoption/memory.md.
  */
 import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { createHash, randomUUID } from 'node:crypto'

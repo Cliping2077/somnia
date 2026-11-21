@@ -1,26 +1,39 @@
 # Somnia
 
-**Let your AI dream.** Most agent memory is append-only. This one sleeps on it.
+Somnia is an open-source memory component for AI agents. During an idle
+period, it turns selected conversation excerpts into scoped memory updates
+with citations. A new task can interrupt the background work. Reports and
+snapshots let you inspect changes and recover an earlier memory state.
 
-![Somnia — a 36-second film](demo/sleep-memory-demo.gif)
+[Download the latest release](https://github.com/Cliping2077/somnia/releases/latest)
+· [Install in DeepSeek Harness](docs/install-dsh.md)
+· [Sleep indicator example](examples/sleep-indicator.html)
 
-[Releases](https://github.com/Cliping2077/somnia/releases)
+## Try it in 30 seconds
 
-An open-source implementation of *sleep-stage memory* for AI agents: a short-lived
-episodic buffer, a background **dream** that rewrites long-term memory, active
-forgetting, and a reviewable snapshot history. Built as a plugin for
-[DeepSeek Harness](https://github.com/deepseek-ai) (DSH), with a small,
-framework-agnostic design that can be ported to other agents.
+Open the checkout or extracted source archive in a terminal with Node.js 22+
+and run:
 
-**Sleep · Memory · Consolidation · Recall.**
+```bash
+node examples/quickstart.mjs
+```
 
-[Install the DeepSeek Harness bundle](docs/install-dsh.md)
+The example records two synthetic messages, runs one consolidation, and shows
+why one instruction becomes a durable preference while the other stays scoped
+to a single task. It uses a local fixture in place of a model and needs no API
+key or DeepSeek Harness installation.
+
+```text
+Foreground preference · Use dark mode (project drafts, when reviewing)
+Background note · Use light mode (release demo, this demo only)
+Evidence · “Remember: always use dark mode when reviewing project drafts.”
+```
 
 ```
 day  ──►  episodes.jsonl        (fast, 30-day replay window, never injected)
              │
         nap  ▼
-        replay → rewrite → downscale → glymph
+        replay → consolidate → downscale → archive
              │              │
              ▼              ▼
         memory.json     snapshots/ + dream-report.md
@@ -33,15 +46,9 @@ Append-only memory rots. Entries duplicate, contradict each other, keep stale
 plans alive, and never forget. Every conversation makes the store a little
 worse.
 
-OpenAI's **Dreaming** (ChatGPT, 2025–2026) showed the alternative: a background
-process that *synthesizes* memory from many conversations, rewrites it, shifts
-time ("going to Singapore in July" → "went to Singapore in July 2026"), and
-demotes what stops mattering. Anthropic's managed memory takes a similar path:
-asynchronous maintenance that proposes changes for human review.
-
-None of that is open source. `Somnia` is a small, local, inspectable
-take on the same idea — plus the parts biology suggests: selection,
-downscaling, clearance, and dreams.
+Somnia stores the scope and source of a memory so you can see where it applies
+and what prompted it. The [design notes](docs/adoption/memory.md) document the
+related projects and published designs that informed it.
 
 ## What a nap does
 
@@ -52,11 +59,11 @@ downscaling, clearance, and dreams.
    evidence.
 3. **Downscale** — entries that are never used fade to `background`; old
    low-confidence entries are dropped.
-4. **Glymph** — trim expired episodes, rotate snapshots, write the dated report.
+4. **Archive** — move older episodes out of the replay window, rotate snapshots,
+   and write the dated report.
 
-A nap never creates a session, never takes a chat turn, and a user message
-always outranks it. If the app closes, nothing is lost: the buffer is on disk
-and the next wake consolidates it. Multiple naps per day are expected.
+Consolidation runs in the background. The adapter cancels it when a new task
+starts, and pending episodes remain available for a later attempt.
 
 ## Quick start (DSH)
 
@@ -67,55 +74,28 @@ from this repository's `packages/dsh-memory` directory. Verify that its
 | File | Purpose |
 | --- | --- |
 | `episodes.jsonl` | redacted recent episodes (30-day replay window, capped at 5,000 during consolidation) |
-| `memory.json` | the rewritten summary that is injected into sessions |
-| `snapshots/` | one snapshot per rewrite, restorable |
+| `memory.json` | long-term entries available for session context |
+| `snapshots/` | restorable history of memory changes |
 | `dreams/YYYY-MM-DD.md` | human-readable dream report |
-| `dream-journal.json` | phase log (replay / rewrite / downscale / done) |
+| `dream-journal.json` | current or most recent consolidation phase |
 
-The same directory also contains the classic four tools:
+The `memory` tool includes these actions:
 
 ```
 memory save | search | list | hide | show | forget
 memory dream | wash | state | config | snapshots | restore
 ```
 
-## What that looks like
-
-```
-$ memory dream
-{ "lastDreamAt": 1794889502731 }
-
-$ cat ~/.dsh/memory/dream-report.md
-# Dream 2026-11-17
-
-- Reason: manual
-- Engine: model
-- Episodes in buffer: 24
-- Salient episodes: 7
-- Entries: 9 -> 9
-- Hypotheses: 2
-
-## Kept
-- [preferences] UI: use the DeepSeek layout position as the reference.
-- [projects] The user is building an AIGC / fiction workflow and wants DSH to feel like GPT.
-...
-## Hypotheses
-- The user may still be comparing the visual layout of DSH against DeepSeek.
-```
-
 ## Design principles
 
 - **Task first.** A user message always outranks a dream.
-- **Capture broadly, consolidate selectively.** The buffer can hold a stray
-  sentence; the long-term store cannot. Hypotheticals and one-off chatter decay
-  in the buffer instead of becoming "preferences".
-- **Rewrite, don't append.** Memory is a summary, not a log.
-- **Forget by design.** Downscaling and clearance are features, not bugs.
-- **Human review.** Reports, snapshots, and `restore` make every rewrite
-  auditable and reversible.
-- **Local only.** No server, no telemetry, no uploads.
-- **Redact first.** API keys, bearer tokens, emails, and card numbers are stripped
-  before anything reaches the buffer or the model.
+- **Record scope.** A one-off instruction can stay in the notes for its task.
+- **Keep a review trail.** Sources, reports, and `restore` let you inspect
+  memory changes and recover earlier entries.
+- **Keep the store on disk.** When DSH uses a remote provider for
+  consolidation, selected excerpts and memory entries go to that provider.
+- **Redact common sensitive patterns.** The filter covers common credentials,
+  emails, and card numbers. Treat the store and its archives as sensitive.
 
 ## Review without the UI
 
@@ -148,20 +128,9 @@ its own copy of the core files (`core.js`, `consolidate.js`, `file-memory.js`).
 
 ## Why "sleep"?
 
-The phases are modelled on what sleep actually does:
-
-- **NREM systems consolidation** — hippocampal replay, abstraction into
-  neocortical schemas ([Lutz & Born 2026](https://journals.physiology.org/doi/full/10.1152/physrev.00054.2024)).
-- **Synaptic downscaling** — sleep weakens noise and keeps what is used
-  ([Tononi & Cirelli](https://www.sciencedirect.com/science/article/abs/pii/S1087079205000420)).
-- **Glymphatic clearance** — literal washing, unrelated to content
-  ([Molecular Psychiatry 2026](https://www.nature.com/articles/s41380-026-03750-w)).
-- **REM association** — emotional processing and loose recombination, which is
-  why the plugin stores *hypotheses* (low confidence), never facts
-  ([Trends Neurosci 2025](https://www.sciencedirect.com/science/article/abs/pii/S0166223625002218)).
-
-Dreaming is not the mechanism; it is the report. The mechanism is selection,
-rewrite, decay, and review.
+The name comes from an analogy with replay and consolidation during sleep.
+In Somnia, a dream is a background round of selecting episodes, applying
+memory updates, and writing a report you can review.
 
 ## Other agents
 
@@ -176,14 +145,10 @@ the reference implementation (~200 lines of wiring).
 
 ## Status
 
-Working today: buffer capture, model-backed rewrite, downscale, snapshots,
-restore, injection, dream report, and the sleep indicator (official DeepSeek
-whale tail, blue shimmer, three rising z's, elapsed sleep time) in the
-conversation tail.
-
-Also shipped: the host-agnostic `@somnia/core` package (`packages/core`) with unit
-tests. Next: add a small review UI, surface REM hypotheses, and try it in daily
-use on macOS/Linux (CI already runs the tests there).
+Somnia includes the host-independent core, the DeepSeek Harness adapter,
+and a sleep indicator in the conversation tail. The automated suite and
+package checks have passed on Windows and Ubuntu. The GitHub workflow also
+defines a macOS job for manual verification.
 
 ## License
 
@@ -193,12 +158,10 @@ MIT. See [LICENSE](LICENSE).
 
 ## Current design and how to verify it
 
-Memory is written as **operations**, never as a whole-store rewrite: the model returns
-`ADD / UPDATE / DELETE / NOOP` with a required `scope {object, situation, excludes}` and a
-`source {episodes, quote}`. A one-off decision for a single artifact is demoted to `notes` and
-cannot become a standing preference; a newer claim about the same subject supersedes the older
-entry in code. See `docs/adoption/memory.md` for the prior-art survey, the field/op mapping and
-the deviations.
+The engine applies `ADD / UPDATE / DELETE / NOOP` operations. An added entry needs
+a scope object and traceable evidence. Somnia can demote a one-off decision to
+`notes` and can mark an older claim as superseded when a newer claim concerns
+the same subject and scope. See the [design and attribution notes](docs/adoption/memory.md).
 
 The machine store is `memory.json`; it is mirrored to a Claude-style `memory/MEMORY.md` index
 plus one markdown file per entry. **Editing a file is authoritative** — the next load takes the
@@ -215,7 +178,6 @@ node eval/file-sync-eval.mjs
 node eval/fetch-datasets.mjs   # tells you how to fetch LoCoMo / LongMemEval-S
 ```
 
-Known limits, stated rather than hidden: retrieval ranks with BM25 (scope orders injection, not
-recall); the store is plain JSON on disk (no database); dataset-backed benchmark numbers measure
-**retrieval recall only** and are not evidence that an entry is applied in the right situation;
-verification so far is Windows-only.
+The evaluation scripts measure behaviors such as retrieval, source validation
+and restoration. Long-running conversations and the effect of memory on final
+answers still need broader evaluation.

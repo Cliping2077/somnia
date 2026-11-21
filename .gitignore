@@ -42,7 +42,5 @@ scripts/cdp-token.mjs
 scripts/push-api.ps1
 scripts/push-incremental.ps1
 
-# Showcase media is curated: only the assets the README embeds ship; raw captures stay local.
-!/demo/
-demo/*
-!/demo/sleep-memory-demo.gif
+# Local recording exports.
+/demo/

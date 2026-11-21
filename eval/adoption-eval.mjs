@@ -11,6 +11,8 @@ const episodes = [
   { id: 'e4', t: now, text: '余额面板保留充值入口' },
   { id: 'e5', t: now, text: '以后出口换 1.2.3.4' },
   { id: 'e6', t: now, text: 'DSH 改造工作已撤销' },
+  { id: 'e7', t: now, text: 'Alpha 项目用本地模拟环境验收' },
+  { id: 'e8', t: now, text: 'Beta 项目用集成环境验收' },
 ]
 
 function base() {
@@ -157,11 +159,11 @@ check('noop leaves the store untouched (no global rewrite)', () => {
   assert.deepEqual(entries.map((entry) => entry.text), before.entries.map((entry) => entry.text))
 })
 
-// 8. A newer claim about the same subject supersedes the older entry in code, not only in prose.
-check('same-subject claim supersedes the older entry', () => {
+// A newer claim supersedes the older entry within the same normalized scope.
+check('same-subject claim in the same scope supersedes the older entry', () => {
   const before = base()
   before.entries[0].subject = '出口IP'
-  before.entries[0].section = 'projects'
+  before.entries[0].scope = { object: ' 代理出口 ', situation: '静态  IP 方案' }
   const ops = [{
     op: 'add', section: 'projects', subject: '出口IP', text: '出口 IP 改为 1.2.3.4',
     scope: { object: '代理出口', situation: '静态 IP 方案' }, episodes: ['e5'], quote: '以后出口换 1.2.3.4',
@@ -172,6 +174,53 @@ check('same-subject claim supersedes the older entry', () => {
   assert.equal(old.validTo, now)
   assert.ok(old.supersededBy, 'older claim must point at its replacement')
   assert.ok(applied[0].superseded === 'keep-1')
+})
+
+check('same-subject claims in different project scopes both stay active', () => {
+  const ops = [
+    { op: 'add', section: 'projects', subject: '验收环境', text: '本地模拟环境', scope: { object: 'Alpha' }, episodes: ['e7'] },
+    { op: 'add', section: 'projects', subject: '验收环境', text: '集成环境', scope: { object: 'Beta' }, episodes: ['e8'] },
+  ]
+  const { entries, results: applied } = applyOps(ops, base(), now, episodes)
+  const matches = entries.filter((entry) => entry.subject === '验收环境')
+  assert.deepEqual(matches.map((entry) => [entry.scope.object, entry.status, entry.validTo]), [
+    ['Alpha', 'foreground', undefined],
+    ['Beta', 'foreground', undefined],
+  ])
+  assert.equal(applied[1].superseded, undefined)
+})
+
+check('a scoped claim preserves an older entry with unknown scope', () => {
+  const before = base()
+  before.entries[0].subject = '验收环境'
+  delete before.entries[0].scope
+  const ops = [
+    { op: 'add', section: 'projects', subject: '验收环境', text: '集成环境', scope: { object: 'Beta' }, episodes: ['e8'] },
+  ]
+  const { entries, results: applied } = applyOps(ops, before, now, episodes)
+  const old = entries.find((entry) => entry.id === 'keep-1')
+  assert.equal(old.status, 'foreground')
+  assert.equal(old.validTo, undefined)
+  assert.equal(applied[0].accepted, true)
+  assert.equal(applied[0].superseded, undefined)
+})
+
+check('a background claim preserves the foreground fact in the same scope', () => {
+  const before = base()
+  const current = before.entries[0]
+  current.subject = '验收环境'
+  current.scope = { object: 'Beta', situation: '验收' }
+  const ops = [{
+    op: 'add', section: 'projects', subject: '验收环境', status: 'background', text: '集成环境',
+    scope: current.scope, episodes: ['e8'],
+  }]
+  const { entries, results: applied } = applyOps(ops, before, now, episodes)
+  const existing = entries.find((entry) => entry.id === current.id)
+  const added = entries.find((entry) => entry.id === applied[0].id)
+  assert.equal(existing.status, 'foreground')
+  assert.equal(existing.validTo, undefined)
+  assert.equal(added.status, 'background')
+  assert.equal(applied[0].superseded, undefined)
 })
 
 const failed = results.filter((entry) => !entry.ok)

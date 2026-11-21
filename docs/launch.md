@@ -1,100 +1,60 @@
 # Launch notes
 
-A repository does not promote itself. This is the plan we would run for
-Somnia, written down so it can be executed or handed to someone else.
+Somnia gives an agent a way to keep a durable preference with its source and
+scope, and to inspect or roll back changes made during an idle period. The
+first audience is people building personal agents and using DeepSeek Harness.
 
-## Positioning
+Use the [public repository](https://github.com/Cliping2077/somnia) and
+[latest release](https://github.com/Cliping2077/somnia/releases/latest).
+The [30-second example](../examples/quickstart.mjs), run from the extracted
+source directory, uses synthetic messages and a scripted model response.
+It demonstrates what the engine does after receiving those proposals.
 
-**One line:** *Most agent memory is append-only. This one sleeps on it.*
+## Show HN or a technical community
 
-**Category:** agent memory / long-term memory / "dreaming" for LLM agents.
+Suggested title
 
-**Audience, in order:**
+> Show HN: Somnia, inspectable memory for AI agents
 
-1. People building agents who are frustrated by append-only memory.
-2. DSH users (try it immediately, one command).
-3. People who saw OpenAI's Dreaming announcement and want an open version.
-4. Researchers/curious readers of sleep science.
+Suggested post
 
-**Proof points that make it credible:**
-
-- a 30-second before/after: a stale/contradictory memory store becomes a short,
-  current summary after one nap;
-- a dream report with kept / background / hypotheses;
-- a snapshot/restore demo;
-- the sleep indicator (the emotional hook).
-
-## Assets to produce before posting
-
-| Asset | Why |
-| --- | --- |
-| 30–45s screen recording | the single most important asset |
-| 3 screenshots | hero, dream report, restore |
-| README GIF | autoplays on GitHub |
-| one-paragraph explanation | for HN/Reddit text posts |
-| a mock-LLM example | lets people try without an API key |
-
-### Video script (40s)
-
-1. (0–8s) Chat normally; show the sleep indicator appearing.
-2. (8–18s) `memory state`; show `episodes` growing and `memory.json` as a
-   rewrite, not a log.
-3. (18–28s) Run `memory dream`; show the report: merged entries, time-shifted
-   plan, hypotheses.
-4. (28–36s) Show `snapshots` + `restore` — a bad dream can be undone.
-5. (36–40s) One line: "Open source. Local. Sleep-stage memory for agents."
-
-## Channels and order
-
-**Day 1 (English):**
-
-- Show HN: `Show HN: Sleep-stage memory for AI agents — an open-source Dreaming`
-- r/LocalLLaMA (best fit), r/AI_Agents, r/LLMDevs
-- X/Twitter thread with the GIF and the architecture diagram
-- LinkedIn (optional)
-
-**Day 1–2 (Chinese):**
-
-- 小红书: 3-slide carousel (sleep indicator, dream report, before/after)
-- B站: the 40s video + a 3-minute explanation
-- 知乎: "AI Agent 的记忆为什么需要睡眠？"
-- V2EX / 即刻: short post with the repo link
-
-**Day 2–7:**
-
-- answer every issue and comment;
-- post the dream report as a follow-up ("what one nap did to my memory");
-- submit to GitHub topics: `agent-memory`, `llm`, `dreaming`, `deepseek-harness`.
-
-## Post templates
-
-**Show HN**
-
-> Show HN: Sleep-stage memory for AI agents — an open-source Dreaming
+> I built Somnia to make an agent's long-term memory easier to check and fix.
+> During an idle period, it takes selected bits of conversation and proposes
+> scoped memory updates. Each update can cite its source, and a snapshot
+> lets you go back if the result is wrong.
 >
-> Most agent memory is append-only: it grows, duplicates, and keeps stale plans
-> alive. I built an open-source version of the "dreaming" idea: a 7-day episodic
-> buffer, a background nap that rewrites long-term memory (merge, time-shift,
-> demote, drop), active forgetting, and snapshots you can restore. It runs as a
-> DSH plugin, local only, no daemon. Happy to answer questions about the
-> selection/rewrite design.
+> The little example in the README shows why “always use dark mode when
+> reviewing drafts” becomes a preference, while “use light mode for this
+> demo” stays with that demo. The example runs locally with a scripted model
+> response and needs no API key.
+>
+> The core runs on Node.js, and the DeepSeek Harness adapter makes it usable
+> inside that host. I’d like feedback from anyone who has had an agent reuse
+> a preference in the wrong task.
+>
+> https://github.com/Cliping2077/somnia
 
-**小红书**
+## 即刻或中文开发者社区
 
-> 我给我的 AI 做了个"睡眠"：它会做梦，醒来记忆变短了
-> 不是把聊天记录全存下来，而是像人一样：白天进缓冲，空闲时做梦重写记忆，
-> 把过时的、重复的、矛盾的洗掉，还能回滚。开源了。
+建议正文
 
-## What not to do
+> 我做了个开源组件 Somnia，想解决 Agent 把一次性的要求记成永久偏好的问题。
+>
+> 例如「以后审稿用深色模式」可以长期记住。「这次发布演示用浅色」则只留下
+> 一条属于这次演示的笔记。你可以查看每条记忆的原文出处，发现问题时从快照恢复。
+>
+> README 里有个 30 秒示例，跑起来不需要 API 密钥。也可以把它作为
+> DeepSeek Harness 的本地插件试用。你遇到过 Agent 把上一个项目的习惯用到
+> 当前项目吗？欢迎拿具体例子来交流。
+>
+> https://github.com/Cliping2077/somnia
 
-- Do not claim "first" or "better than OpenAI"; claim *open, local, inspectable*.
-- Do not post the same text to five subreddits on the same day; tailor.
-- Do not launch without the demo video.
-- Do not hide the limitations; the architecture doc lists them.
+## 展示素材
 
-## Realistic expectations
+用上手示例的真实输出展示偏好、笔记及来源。如果要展示插件界面，可先打开
+[独立的睡眠指示器示例](../examples/sleep-indicator.html)，再使用合成对话录制
+当前插件。新录制应只包含用于演示的界面和数据。
 
-Stars come from the demo + the one-liner + the first 48 hours of distribution.
-A repo with no launch gets a handful of views. Plan for a spike, then a long
-tail; the long tail is maintained by docs, issues, and follow-up demos (e.g.,
-"what 30 days of naps did to my memory").
+测试覆盖和数据处理见[架构说明](architecture.md)。目前的评估主要覆盖召回、
+来源和恢复等行为。介绍产品时，可以说清这些已验证的用途，也可以邀请用户
+提供真实的长对话案例。

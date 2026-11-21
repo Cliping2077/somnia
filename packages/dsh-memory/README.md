@@ -42,7 +42,7 @@ Runtime override: `memory { "action": "config", "idleMinutes": 10 }`.
 | `hide` / `show` | move an entry to background / foreground |
 | `forget` | delete an entry |
 | `dream` | run one nap now |
-| `wash` | run a rewrite now |
+| `wash` | request a broader consolidation |
 | `state` | sleep state, entry and episode counts |
 | `config` | set `idleMinutes` |
 | `snapshots` | list snapshot files |
@@ -53,6 +53,7 @@ Runtime override: `memory { "action": "config", "idleMinutes": 10 }`.
 ```
 ~/.dsh/memory/
   episodes.jsonl
+  episodes-archive.jsonl
   memory.json
   snapshots/
   dreams/YYYY-MM-DD.md
@@ -63,11 +64,11 @@ Runtime override: `memory { "action": "config", "idleMinutes": 10 }`.
 
 ## Notes
 
-- Local only; the only network call is the model provider already configured in
-  DSH.
-- The store is a summary, not a transcript; `memory list` / `forget` /
-  `restore` are the escape hatches.
-- Windows is verified; macOS/Linux use `os.homedir()` and should work but are
-  not yet tested.
+- Memory files stay on disk. For model-backed consolidation, selected
+  episodes and memory entries go to the model provider configured in DSH.
+- `memory list`, `source`, `forget`, and `restore` let you inspect or change
+  the long-term store. The episode archive and snapshots have their own
+  retention.
+- Automated tests and package checks have passed on Windows and Ubuntu.
 
 License: MIT.

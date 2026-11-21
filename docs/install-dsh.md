@@ -21,13 +21,14 @@ Manager registers and activates the bundle for the current profile.
 ## What you get
 
 - `episodes.jsonl` buffer under `~/.dsh/memory`
-- a dream after 10 idle minutes (configurable with `memory({action:'config'})`)
+- background consolidation after 10 idle minutes by default, with a
+  six-hour minimum cooldown between automatic attempts
 - a synthesized `memory.json` injected into the system prompt
 - `dream-report.md`, `dreams/`, `snapshots/`
 - the `memory` tool for saving, reviewing, and restoring memories
 - the sleep row in the conversation tail
 
-The sleep row estimates idle time from the conversation status in the client.
+The Somnia sleep row estimates idle time from the conversation status in the client.
 The `memory` tool's `state` action shows the actual consolidation state and
 configured idle interval.
 

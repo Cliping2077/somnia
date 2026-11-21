@@ -1,10 +1,9 @@
 /**
- * Scoped, operation-based memory consolidation — the ported write pipeline.
+ * Scoped, operation-based memory consolidation.
  *
- * Adoption: docs/adoption/memory.md. Mem0 supplies the ADD/UPDATE/DELETE/NOOP op model and the
- * "extract, never rewrite the store" rule; Graphiti supplies validity intervals
- * (validFrom/validTo, supersede by invalidation). Everything here is a pure function so the
- * failure-mode eval can run without a model.
+ * Mem0's extraction and operation model and Graphiti's temporal invalidation inform
+ * this design. Somnia applies these patterns to scoped records with episode citations.
+ * See docs/adoption/memory.md.
  */
 
 export const SECTIONS = ['identity', 'preferences', 'projects', 'plans', 'lessons', 'notes', 'hypotheses']
@@ -175,17 +174,20 @@ export function applyOps(ops, previous, now = Date.now(), episodes = []) {
       }
       entries.push(entry)
       byId.set(entry.id, entry)
-      // Programmatic conflict resolution: a newer claim about the same subject supersedes the older
-      // one instead of leaving two contradictory foreground entries behind.
+      // A newer foreground claim can replace an older one for the same subject and scope.
+      // Records with unknown scope cannot reliably be matched to a replacement.
       const subject = entry.subject && entry.subject.trim().toLowerCase()
       let supersededId
-      if (subject) {
+      if (subject && entry.status === 'foreground') {
         for (const other of entries) {
           if (other === entry) continue
           if (other.pinned) continue
           if (other.section !== section) continue
           if (!other.subject || other.subject.trim().toLowerCase() !== subject) continue
           if (other.status !== 'foreground' || other.validTo !== undefined) continue
+          const otherScope = normalizeScope(other.scope)
+          if (otherScope === undefined || otherScope.object !== scope.object ||
+              otherScope.situation !== scope.situation || otherScope.excludes !== scope.excludes) continue
           other.validTo = now
           other.supersededBy = entry.id
           other.status = 'background'

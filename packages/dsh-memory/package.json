@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-sleep-memory",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Somnia: sleep-stage long-term memory for AI agents — episodic buffer, dream rewrite, downscale, snapshots (DeepSeek Harness adapter)",
   "type": "module",
   "license": "MIT",

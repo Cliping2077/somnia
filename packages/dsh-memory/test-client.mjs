@@ -112,3 +112,22 @@ test('a running task hides the sleep row on the first render', () => {
   status.set('one', { running: true })
   assert.equal(row.render(), null)
 })
+
+test('the sleep row announces Somnia with a decorative moon', () => {
+  const { status, advance, turn } = fixture()
+  status.set('one', { running: false })
+  const row = turn('one', 1)
+  row.render()
+  row.render()
+  advance(600_000)
+
+  const [, sleepStatus] = row.render().children
+  const [moon, label] = sleepStatus.children
+  const [visibleLabel] = label.children[0].children
+
+  assert.equal(visibleLabel.children[0], 'Somnia 正在睡眠，刚睡着')
+  assert.equal(sleepStatus.props.role, 'status')
+  assert.equal(sleepStatus.props['aria-live'], 'polite')
+  assert.equal(moon.props.className, 'mem_moon')
+  assert.equal(moon.props['aria-hidden'], 'true')
+})

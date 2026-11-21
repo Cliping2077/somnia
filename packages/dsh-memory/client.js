@@ -2,13 +2,10 @@
 //
 // The sleep indicator is a `conversation.chat.turnTail` contribution: it lives
 // in the transcript's tail, right before the completed Turn's actions row —
-// the same seat the "深度求索中" status occupies while running. It only renders
+// the same position as the host's running status. It only renders
 // on the latest Turn and only while the session has been idle long enough, so a
 // new task immediately hands the seat back to the thinking line.
 //
-// Art: a small brand-blue whale with a closed eye, a white belly and a
-// nightcap. The official mark carries too much detail below ~40px, so this is a
-// simplified sleeping version in the same silhouette and colour language.
 window.__ModuleLoader__.load({
   id: 'dsh-plugin-sleep-memory',
   factory(require) {
@@ -22,8 +19,10 @@ window.__ModuleLoader__.load({
   font-variant-numeric:tabular-nums;
   --dsw-alias-label-shimmer:var(--dsw-alias-label-deep-diving-shimmer,#DCEBFF);
   user-select:none;white-space:nowrap}
-.mem_sleep .mem_whale{width:14px;height:14px;flex:none;overflow:visible;
-  transform-origin:35% 75%;animation:memWag 3.4s ease-in-out infinite}
+.mem_sleep .mem_moon{position:relative;width:14px;height:14px;flex:none;
+  animation:memFloat 3.4s ease-in-out infinite}
+.mem_moon:before{content:"";position:absolute;inset:1px 1px 3px 3px;
+  border-radius:50%;box-shadow:-2px 2px 0 1px currentColor}
 .mem_shimmer{position:relative;display:inline-grid;width:max-content;max-width:100%;
   min-width:0;vertical-align:top;color:inherit}
 .mem_shimmer_content{display:flex;align-items:center;min-width:0}
@@ -45,7 +44,7 @@ window.__ModuleLoader__.load({
 .mem_zzz i:nth-child(1){font-size:6px;left:0;bottom:0;animation-delay:0s}
 .mem_zzz i:nth-child(2){font-size:6px;left:5px;bottom:3px;animation-delay:.3s}
 .mem_zzz i:nth-child(3){font-size:7px;left:10px;bottom:6px;animation-delay:.6s}
-@keyframes memWag{0%,100%{transform:rotate(0) translateY(0)}
+@keyframes memFloat{0%,100%{transform:rotate(0) translateY(0)}
   50%{transform:rotate(-6deg) translateY(-1px)}}
 @keyframes memShimmerSweep{0%{transform:translate(-100%)}66.6667%,to{transform:translate(100%)}}
 @keyframes memShimmerHighlight{0%{transform:translate(100%)}66.6667%,to{transform:translate(-100%)}}
@@ -55,7 +54,7 @@ window.__ModuleLoader__.load({
   70%{opacity:.9}
   100%{opacity:0;transform:translate(3px,-3px)}}
 @media(prefers-reduced-motion:reduce){
-  .mem_sleep .mem_whale,.mem_zzz i{animation:none}
+  .mem_sleep .mem_moon,.mem_zzz i{animation:none}
   .mem_shimmer_decoration{display:none}}
 `
 
@@ -99,20 +98,6 @@ window.__ModuleLoader__.load({
     function subscribeSeq(listener) {
       seqListeners.add(listener)
       return () => seqListeners.delete(listener)
-    }
-
-    // Official DeepSeek running-whale tail, the same path the "深度求索中" line
-    // uses as its fallback icon.
-    const WHALE_TAIL = 'M8.844 13.742C8.967 12.328 8.45 10.4 8.45 9.65C8.45 8.94 8.88 8.43 9.6 8.43C11.285 8.43 12.106 8.281 12.685 8.104C13.71 7.791 14.585 6.768 15.055 5.945C15.137 5.803 14.99 5.641 14.829 5.671C13.829 5.86 12.828 5.376 11.827 4.978C10.659 4.514 9.491 4.707 8.935 4.876C8.805 4.915 8.658 4.819 8.636 4.686C8.468 3.643 7.405 2.615 5.498 2.238C4.54 2.048 3.748 1.574 3.347 1.202C3.252 1.113 3.088 1.125 3.03 1.242C2.628 2.059 2.168 3.82 5.248 6.115C5.82 6.494 6.31 6.785 6.574 7.637C6.72 8.104 6.157 9.168 6.061 9.368C5.157 11.27 5.089 12.19 4.926 13.742'
-
-    function WhaleTail() {
-      return h('svg', {
-        className: 'mem_whale', viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': 'true',
-      },
-        h('path', {
-          d: WHALE_TAIL, stroke: 'currentColor', strokeWidth: 1.2, fill: 'none',
-        }),
-      )
     }
 
     function formatSleep(ms) {
@@ -165,13 +150,13 @@ window.__ModuleLoader__.load({
 
       if (!isLatest || running !== false || !sleeping) return null
       const elapsed = Math.max(0, clock - sleep.startedAt)
-      const text = `deepseek 正在睡眠，${formatSleep(elapsed)}`
+      const text = `Somnia 正在睡眠，${formatSleep(elapsed)}`
       return h(
         React.Fragment,
         null,
         h('style', { key: 'style' }, CSS),
         h('div', { className: 'mem_sleep', role: 'status', 'aria-live': 'polite' },
-          h(WhaleTail, { key: 'whale' }),
+          h('span', { className: 'mem_moon', key: 'moon', 'aria-hidden': 'true' }),
           h('span', { className: 'mem_shimmer', key: 'text' },
             h('span', { className: 'mem_shimmer_content' },
               h('span', { className: 'mem_shimmer_text' }, text),
