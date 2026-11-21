@@ -1,6 +1,6 @@
 # Architecture
 
-`sleep-memory` is deliberately small: three files, one model call per nap, no
+Somnia is deliberately small: three files, one model call per nap, no
 daemon. This document explains the model, the data, and the trade-offs.
 
 ## Layers
@@ -140,7 +140,7 @@ line. There is no overlay and no card, so it never covers the conversation.
 
 ## Relationship to OpenAI Dreaming
 
-| | OpenAI Dreaming | sleep-memory |
+| | OpenAI Dreaming | Somnia |
 | --- | --- | --- |
 | Where | hosted | local, open source |
 | Trigger | background synthesis | idle nap, environment-driven |

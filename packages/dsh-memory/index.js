@@ -1,9 +1,10 @@
 /**
  * DSH adapter for @somnia/core.
  *
- * The sleep loop lives in ./core.js. This file only wires DSH events, the model,
- * prompt injection, and the memory tool. Porting to another host means replacing
- * this file, not core.js.
+ * The sleep loop lives in ./core.js, a copy of packages/core/src/somnia.js kept
+ * in sync by scripts/sync-core.mjs (edit the core, then run `npm run sync-core`).
+ * This file only wires DSH events, the model, prompt injection, and the memory
+ * tool. Porting to another host means replacing this file, not core.js.
  */
 import os from 'node:os'
 import path from 'node:path'
