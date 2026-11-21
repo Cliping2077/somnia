@@ -1,7 +1,7 @@
 # Launch notes
 
 A repository does not promote itself. This is the plan we would run for
-`sleep-memory`, written down so it can be executed or handed to someone else.
+Somnia, written down so it can be executed or handed to someone else.
 
 ## Positioning
 

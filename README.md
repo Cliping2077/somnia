@@ -141,6 +141,11 @@ Run `node scripts/verify-release.mjs` to verify the two package archives locally
 The GitHub verification workflow starts only when dispatched and does not
 publish either package.
 
+The DSH plugin installs as a plain directory, so `packages/dsh-memory` carries
+its own copy of the core files (`core.js`, `consolidate.js`, `file-memory.js`).
+`packages/core/src` is the source of truth: edit it there, then run
+`npm run sync-core`. `npm test` fails if the copies drift.
+
 ## Why "sleep"?
 
 The phases are modelled on what sleep actually does:
@@ -176,8 +181,9 @@ restore, injection, dream report, and the sleep indicator (official DeepSeek
 whale tail, blue shimmer, three rising z's, elapsed sleep time) in the
 conversation tail.
 
-Next: extract a framework-agnostic `@somnia/core` with unit tests, add a small
-review UI, surface REM hypotheses, and test on macOS/Linux.
+Also shipped: the host-agnostic `@somnia/core` package (`packages/core`) with unit
+tests. Next: add a small review UI, surface REM hypotheses, and try it in daily
+use on macOS/Linux (CI already runs the tests there).
 
 ## License
 
