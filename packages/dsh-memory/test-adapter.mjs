@@ -155,3 +155,29 @@ test('capture accepts text-form user content and ignores host messages', async (
   event({ id: 'session' }, { type: 'user/message', data: { source: { kind: 'user' }, content: 'Remember the synthetic workspace preference' } })
   assert.equal((await tool.execute({ action: 'state' })).result.episodes, 1)
 })
+
+test('the memory tool recalls both current facts for a subject in distinct scopes', async (t) => {
+  const { tool } = fixture(t, { idleMinutes: 0 })
+  for (const [project, format] of [['Alpha', 'CSV'], ['Beta', 'Markdown']]) {
+    const saved = await tool.execute({
+      action: 'save',
+      text: `${project} workspace report format is ${format}`,
+      kind: 'fact',
+      subject: 'workspace report format',
+    })
+    const edited = await tool.execute({
+      action: 'edit',
+      id: saved.result.id,
+      scope: { object: project, situation: 'reporting' },
+    })
+    assert.equal(edited.result.changed, true)
+  }
+
+  const recalled = await tool.execute({ action: 'recall', query: 'Alpha Beta workspace report format' })
+  assert.equal(recalled.ok, true)
+  const currentProjects = recalled.result.entries
+    .filter((entry) => !entry.superseded)
+    .map((entry) => entry.scope.object)
+    .sort()
+  assert.deepEqual(currentProjects, ['Alpha', 'Beta'])
+})

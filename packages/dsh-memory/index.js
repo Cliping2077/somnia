@@ -260,7 +260,7 @@ export function apply(ctx, config) {
         kind: { type: 'string', enum: ['fact', 'preference', 'lesson', 'note'], description: 'Entry class; default note.' },
         confidence: { type: 'number', description: '0–1 confidence for save.' },
         pinned: { type: 'boolean', description: 'Pin on save/pin: pinned entries survive rewrites and are injected verbatim.' },
-        subject: { type: 'string', description: 'Subject key for factual entries; entries sharing a subject with a newer value are marked superseded.' },
+        subject: { type: 'string', description: 'Subject key for related factual entries; recall groups newer and older values within the same section and scope.' },
         query: { type: 'string', description: 'Search query.' },
         id: { type: 'string', description: 'Entry id for pin/hide/show/forget.' },
         status: { type: 'string', enum: ['foreground', 'background'], description: 'Filter for list.' },

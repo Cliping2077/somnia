@@ -12,7 +12,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { createHash, randomUUID } from 'node:crypto'
-import { OPS_SYSTEM, applyOps, migrateEntries, opsPrompt, scopeLine } from './consolidate.js'
+import { OPS_SYSTEM, applyOps, migrateEntries, normalizeScope, opsPrompt, scopeLine } from './consolidate.js'
 import { listEntryFiles, readFileEntries, readIndex, writeFileMemory } from './file-memory.js'
 
 export const SECTIONS = ['identity', 'preferences', 'projects', 'plans', 'lessons', 'hypotheses', 'notes']
@@ -933,32 +933,33 @@ export function createSomnia({ dir = path.join(os.homedir(), '.dsh', 'memory'), 
     }
     if (top.some((hit) => hit.kind === 'entry')) persistMemory()
     const entryHits = top.filter((hit) => hit.kind === 'entry')
-    const bySubject = new Map()
-    for (const hit of entryHits) {
-      if (hit.entry.subject) {
-        const list = bySubject.get(hit.entry.subject) || []
-        list.push(hit.entry)
-        bySubject.set(hit.entry.subject, list)
-      }
-    }
     const superseded = new Set()
-    for (const list of bySubject.values()) {
-      if (list.length < 2) continue
-      list.sort((left, right) => (right.lastConfirmedAt || right.firstSeen || 0) - (left.lastConfirmedAt || left.firstSeen || 0))
-      for (let index = 1; index < list.length; index += 1) superseded.add(list[index].id)
-    }
-    // Implicit same-subject supersession: subject-less entries that are lexically close are
-    // treated as versions of one fact, latest wins. A heuristic, not entity linking.
-    const noSubject = entryHits.map((hit) => hit.entry).filter((entry) => !entry.subject)
-    const implicit = []
-    for (const entry of noSubject) {
-      let placed = false
-      for (const group of implicit) {
-        if (contentOverlap(group[0].text, entry.text) >= 0.5) { group.push(entry); placed = true; break }
+    const groupsByScopeAndSubject = new Map()
+    for (const { entry } of entryHits) {
+      const ended = Number.isFinite(entry.validTo) && entry.validTo <= at
+      if (ended || entry.supersededBy) {
+        superseded.add(entry.id)
+        continue
       }
-      if (!placed) implicit.push([entry])
+      if (entry.status === 'background') continue
+
+      const scope = normalizeScope(entry.scope)
+      const subject = normalizeSubject(entry.subject)?.toLowerCase()
+      const key = JSON.stringify([entry.section, scope, subject])
+      let groups = groupsByScopeAndSubject.get(key)
+      if (groups === undefined) {
+        groups = []
+        groupsByScopeAndSubject.set(key, groups)
+      }
+
+      // For entries without a subject, lexical overlap identifies likely versions of one fact.
+      const matching = subject
+        ? groups[0]
+        : groups.find(([first]) => contentOverlap(first.text, entry.text) >= 0.5)
+      if (matching) matching.push(entry)
+      else groups.push([entry])
     }
-    for (const group of implicit) {
+    for (const group of [...groupsByScopeAndSubject.values()].flat()) {
       if (group.length < 2) continue
       group.sort((left, right) => (right.lastConfirmedAt || right.firstSeen || 0) - (left.lastConfirmedAt || left.firstSeen || 0))
       for (let index = 1; index < group.length; index += 1) superseded.add(group[index].id)

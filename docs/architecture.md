@@ -53,6 +53,8 @@ layout conventions that influenced the implementation.
 ## Recall and prompt context
 
 The memory tool searches saved entries and episodes with lexical ranking.
+Recall keeps same-subject entries from distinct scopes available. Historical
+entries with explicit invalidation stay distinguishable from current facts.
 The host can supply an optional embedding function. For prompt injection,
 Somnia prioritizes pinned and profile entries, ranks other foreground entries
 against the supplied context, and caps the text at 2,400 characters. The
